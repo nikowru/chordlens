@@ -93,5 +93,5 @@ VIDEO_MODE_SETTINGS = {
 CAMERA_INDEX = 0          # change if you have more than one webcam
 FRAME_WIDTH = 1280
 FRAME_HEIGHT = 720
-AUTO_CAPTURE_EVERY = 5    # in auto-capture mode, save every Nth frame
+AUTO_CAPTURE_INTERVAL_SECONDS = 0.7  # in auto-capture mode, save one frame this often
 SMOOTHING_WINDOW = 7      # frames of prediction history smoothed in realtime.py

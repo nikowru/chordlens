@@ -16,7 +16,7 @@ How to use it
 
     keys a-g   choose the chord you are currently playing (A to G)
     SPACE      save the current frame
-    t          toggle auto-capture on/off (saves every Nth frame)
+    t          toggle auto-capture on/off (saves one frame every 0.7s, by default)
     q          quit
 
 Images are written to data/recordings/<label>/ as
@@ -32,6 +32,7 @@ while recording, rather than discovering an imbalance at training time.
 
 import argparse
 import sys
+import time
 import uuid
 from datetime import datetime
 
@@ -55,10 +56,10 @@ def parse_args():
         help="webcam index (default: %(default)s)",
     )
     parser.add_argument(
-        "--every",
-        type=int,
-        default=config.AUTO_CAPTURE_EVERY,
-        help="in auto-capture mode, save every Nth frame (default: %(default)s)",
+        "--interval",
+        type=float,
+        default=config.AUTO_CAPTURE_INTERVAL_SECONDS,
+        help="in auto-capture mode, seconds between saved frames (default: %(default)s)",
     )
     parser.add_argument(
         "--mirror",
@@ -99,7 +100,7 @@ def save_frame(frame, label, session_id):
     return path
 
 
-def draw_overlay(frame, label, counts, session_counts, session_id, auto_on, every, hand_found):
+def draw_overlay(frame, label, counts, session_counts, session_id, auto_on, interval, hand_found):
     """Draw the status panel: current label, counts, and key reminders."""
     green, red, white, yellow = (0, 200, 0), (0, 0, 255), (255, 255, 255), (0, 220, 220)
 
@@ -109,7 +110,7 @@ def draw_overlay(frame, label, counts, session_counts, session_id, auto_on, ever
     cv2.putText(frame, "hand detected" if hand_found else "NO HAND",
                 (12, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.6, green if hand_found else red, 2)
 
-    auto_text = f"AUTO every {every}f" if auto_on else "auto off  (t)"
+    auto_text = f"AUTO every {interval}s" if auto_on else "auto off  (t)"
     cv2.putText(frame, auto_text, (12, 96), cv2.FONT_HERSHEY_SIMPLEX, 0.6,
                 yellow if auto_on else white, 2)
 
@@ -143,7 +144,7 @@ def main():
     session_counts = {label: 0 for label in config.CHORD_LABELS}
     current_label = config.CHORD_LABELS[0]
     auto_capture = False
-    frame_index = 0
+    last_auto_capture_time = 0.0  # time.monotonic() of the last auto-saved frame
 
     print(f"session id: {session_id}")
     print("keys: a-g label | SPACE save | t auto-capture | q quit")
@@ -179,15 +180,17 @@ def main():
 
             # Auto-capture only keeps frames that actually contain a hand, so a
             # toggle left on while I reposition does not fill the folder with
-            # unusable images.
-            frame_index += 1
-            if auto_capture and hand_found and frame_index % args.every == 0:
+            # unusable images. Timed by the clock rather than a frame count, so
+            # the save rate stays the same regardless of the camera's FPS.
+            now = time.monotonic()
+            if auto_capture and hand_found and (now - last_auto_capture_time) >= args.interval:
                 save_frame(clean_frame, current_label, session_id)
                 counts[current_label] += 1
                 session_counts[current_label] += 1
+                last_auto_capture_time = now
 
             draw_overlay(frame, current_label, counts, session_counts, session_id,
-                         auto_capture, args.every, hand_found)
+                         auto_capture, args.interval, hand_found)
             cv2.imshow("record chord data  -  q to quit", frame)
 
             key = cv2.waitKey(1) & 0xFF
