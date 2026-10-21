@@ -1,0 +1,17 @@
+# Python 3.12 required.
+#
+# mediapipe is pinned to the last release that still ships the legacy
+# "mp.solutions.hands" Solutions API together with Windows wheels.
+# Newer releases (0.10.35 / 1.x) expose only the newer Tasks API, which needs a
+# separately downloaded hand_landmarker.task model file. Windows wheels for
+# 0.10.21 exist for CPython 3.9-3.12 only, which is why this project does not
+# run on Python 3.13+.
+mediapipe==0.10.21
+
+opencv-python>=4.9
+numpy>=1.26
+pandas>=2.1
+scikit-learn>=1.4
+matplotlib>=3.8
+seaborn>=0.13
+joblib>=1.3

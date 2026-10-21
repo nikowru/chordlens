@@ -1,0 +1,7 @@
+# virtual environment
+.venv/
+
+# python noise
+__pycache__/
+*.py[cod]
+.pytest_cache/
