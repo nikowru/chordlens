@@ -1,8 +1,9 @@
-# Guitar Major Chord Detection from Hand Position
+# Guitar Chord Detection from Hand Position
 
-Real-time classification of the seven major guitar chords (A, B, C, D, E, F, G)
-from a webcam, using **MediaPipe Hands** landmarks and **classical machine
-learning** (SVM and MLP).
+Real-time classification of 14 guitar chords — the major and minor triad for
+each of the seven natural-note roots (A, B, C, D, E, F, G) — from a webcam,
+using **MediaPipe Hands** landmarks and **classical machine learning** (SVM
+and MLP).
 
 The model never sees raw pixels. MediaPipe reduces each frame to 21 hand
 landmarks, and those landmarks are turned into 85 engineered geometric features
@@ -43,7 +44,7 @@ python -c "import mediapipe as mp; print(mp.__version__); print(hasattr(mp.solut
 ```
 chord-detection/
   data/
-    images/          public dataset images, one subfolder per chord: A/ ... G/
+    images/          public dataset images, one subfolder per chord: A/ Am/ B/ Bm/ ... G/ Gm/
     recordings/      my own webcam captures, same per-chord structure
     landmarks.csv    extracted features (one row per image)
   models/            trained models saved with joblib
@@ -89,21 +90,22 @@ teaching the model two different hand shapes with the same name, so every image
 in the dataset uses the shape below. Strings are written low E to high e;
 `x` = string not played, `0` = open string, digits = fret number.
 
-| Chord | Voicing  | Shape                                 |
-| ----- | -------- | ------------------------------------- |
-| A     | `x02220` | open A major                          |
-| B     | `x24442` | **barre**, index barre at 2nd fret    |
-| C     | `x32010` | open C major                          |
-| D     | `xx0232` | open D major                          |
-| E     | `022100` | open E major                          |
-| F     | `133211` | **barre**, full barre at 1st fret     |
-| G     | `320003` | open G major                          |
+| Root | Major | Shape | Minor | Shape |
+| ---- | ----- | ----- | ----- | ----- |
+| A | `x02220` | open | `x02210` | open |
+| B | `x24442` | **barre**, index at 2nd fret | `x24432` | **barre**, index at 2nd fret |
+| C | `x32010` | open | `x35543` | **barre** (Am-shape, index at 3rd fret) |
+| D | `xx0232` | open | `xx0231` | open |
+| E | `022100` | open | `022000` | open |
+| F | `133211` | **barre**, full barre at 1st fret | `133111` | **barre**, full barre at 1st fret |
+| G | `320003` | open | `355333` | **barre** (Em-shape, full barre at 3rd fret) |
 
-**B and F are barre chords.** The fingers lie flat along the fretboard, which
-hides the knuckles from the camera, so MediaPipe detects a hand less reliably
-on these two. `extract_landmarks.py` therefore reports detection and failure
-counts per chord rather than an overall number — a low detection rate on B and
-F is expected and is something to discuss, not hide.
+**6 of the 14 chords are barre chords: B, Bm, C minor, F, Fm, G minor.** The
+fingers lie flat along the fretboard on these, which hides the knuckles from
+the camera, so MediaPipe detects a hand less reliably on them.
+`extract_landmarks.py` therefore reports detection and failure counts per
+chord rather than an overall number — a low detection rate on the barre
+chords is expected and is something to discuss, not hide.
 
 ### Collecting my own data
 
@@ -111,12 +113,16 @@ F is expected and is something to discuss, not hide.
 python record_data.py
 ```
 
-| key     | action                                        |
-| ------- | --------------------------------------------- |
-| `a`–`g` | set the current chord label                   |
-| `SPACE` | save the current frame                        |
-| `t`     | toggle auto-capture (saves every 5th frame)   |
-| `q`     | quit                                          |
+| key     | action                                                      |
+| ------- | ------------------------------------------------------------ |
+| `a`–`g` | set the current chord root (defaults to major)                |
+| `n`     | toggle major/minor — applies to the next root key you press  |
+| `SPACE` | save the current frame                                       |
+| `t`     | toggle auto-capture (saves one frame every 0.7s, by default)  |
+| `q`     | quit                                                          |
+
+A key toggle is used for major/minor rather than Shift+letter, since Shift's
+effect on `cv2.waitKey()` can vary by keyboard layout.
 
 The live feed shows the detected hand skeleton, whether a hand is currently
 found, and per-chord image counts, so the classes can be kept balanced while
@@ -124,9 +130,10 @@ recording. Images are saved as
 `data/recordings/<label>/<label>_<sessionid>_<timestamp>.jpg`, where the session
 id is generated once per run.
 
-Useful options: `--camera N` to pick a different webcam, `--every N` to change
-the auto-capture interval, `--mirror` to flip the image. Mirroring turns a left
-hand into a right hand as far as MediaPipe is concerned, so use the same
+Useful options: `--camera N` to pick a different webcam, `--interval N` to
+change the auto-capture interval in seconds (default: `src/config.py`'s
+`AUTO_CAPTURE_INTERVAL_SECONDS`), `--mirror` to flip the image. Mirroring turns
+a left hand into a right hand as far as MediaPipe is concerned, so use the same
 `--mirror` setting for every session.
 
 Saved frames are always clean camera frames — the drawn skeleton is never baked

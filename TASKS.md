@@ -12,18 +12,24 @@ The coding (feature extraction, training, real-time app) is already handled.
 
 ## Who does what
 
-| Teammate | Chords | Includes barre chord |
-| --- | --- | --- |
-| **Teammate 1** | A, B, C, D | B (barre) |
-| **Teammate 2** | E, F, G | F (barre) |
+**Update:** the professor's feedback means minor chords are now in scope too
+— not just the 7 majors, all 14 (every root, major **and** minor). Each
+teammate keeps the same root letters as before, just adding the minor version
+of each.
 
-Each person is responsible only for their own chords — don't record the
-other person's letters, so we don't end up with duplicate or conflicting data.
+| Teammate | Chords | Count | Includes barre chord |
+| --- | --- | --- | --- |
+| **Teammate 1** | A, Am, B, Bm, C, Cm, D, Dm | 8 | B, Bm, Cm (barre) |
+| **Teammate 2** | E, Em, F, Fm, G, Gm | 6 | F, Fm, Gm (barre) |
+
+Each person is responsible only for their own roots — don't record the other
+person's letters, so we don't end up with duplicate or conflicting data.
 
 ### Target: 200 images per chord
 
-That's 200 × 4 = **800 images total for Teammate 1**, and 200 × 3 = **600
-total for Teammate 2**.
+That's 200 × 8 = **1,600 images total for Teammate 1**, and 200 × 6 =
+**1,200 total for Teammate 2** — 2,800 combined. Yes, this is roughly double
+the original plan, because minor chords were added to scope.
 
 This sounds like a lot, but `record_data.py` auto-captures one frame every
 0.7 seconds while you hold a shape, so 200 images is only about **2.5 minutes
@@ -69,35 +75,43 @@ Roughly 40–50 images per session, across 4–5 sessions, per chord.
    ```powershell
    python record_data.py
    ```
-3. Press the letter key for the chord you're about to play (e.g. `a` for A).
-4. Hold the chord shape steady, in frame, with your hand clearly lit.
-5. Press `t` to turn auto-capture on. It'll save a frame every 0.7s as long
+3. Press the letter key for the root you're about to play (e.g. `a` for A).
+   This defaults to **major**.
+4. For the **minor** version of that root, press `n` first to switch to minor
+   mode, then the letter (e.g. `n` then `a` records Am). Press `n` again to
+   switch back to major. The on-screen title always shows which one is
+   currently selected — check it before you start holding the shape.
+5. Hold the chord shape steady, in frame, with your hand clearly lit.
+6. Press `t` to turn auto-capture on. It'll save a frame every 0.7s as long
    as a hand is detected. Press `t` again to pause it when you reposition or
    switch chords.
-6. Watch the on-screen counter for your chord — stop a session once you've
+7. Watch the on-screen counter for your chord — stop a session once you've
    added roughly 40–50 for that sitting.
-7. Press `q` to quit. Repeat in a new session later (see above).
+8. Press `q` to quit. Repeat in a new session later (see above).
 
 You can also press `SPACE` any time to save a single manual frame — useful
 for a specific angle you want to make sure is captured.
 
 ### Voicings (use exactly these — see `src/config.py`)
 
-| Chord | Voicing | Notes |
-| --- | --- | --- |
-| A | `x02220` | open |
-| B | `x24442` | **barre**, index at 2nd fret |
-| C | `x32010` | open |
-| D | `xx0232` | open |
-| E | `022100` | open |
-| F | `133211` | **barre**, full barre at 1st fret |
-| G | `320003` | open |
+| Root | Major | Minor | Notes |
+| --- | --- | --- | --- |
+| A | `x02220` | `x02210` | both open |
+| B | `x24442` | `x24432` | **both barre**, index at 2nd fret |
+| C | `x32010` | `x35543` | major open, **minor barre** (index at 3rd fret) |
+| D | `xx0232` | `xx0231` | both open |
+| E | `022100` | `022000` | both open |
+| F | `133211` | `133111` | **both barre**, full barre at 1st fret |
+| G | `320003` | `355333` | major open, **minor barre** (full barre at 3rd fret) |
 
-For the barre chords (B, F): MediaPipe sometimes can't find a hand because
-the fingers lie flat and hide the knuckles. That's expected — if the
-on-screen status keeps saying "NO HAND" for several seconds, adjust your
-camera angle or lighting rather than forcing it; a shot MediaPipe can't read
-isn't usable anyway.
+Columns are low E to high e strings; `x` = not played, `0` = open string,
+digits = fret number.
+
+For the barre chords (B, Bm, C minor, F, Fm, G minor): MediaPipe sometimes
+can't find a hand because the fingers lie flat and hide the knuckles. That's
+expected — if the on-screen status keeps saying "NO HAND" for several
+seconds, adjust your camera angle or lighting rather than forcing it; a shot
+MediaPipe can't read isn't usable anyway.
 
 ---
 
@@ -141,7 +155,8 @@ to recover from if something goes wrong.
 
 ## Definition of done
 
-- [ ] 200 images recorded for each of your assigned chords
+- [ ] 200 images recorded for each of your assigned chords (majors **and**
+      minors)
 - [ ] Spread across at least 4–5 separate sessions per chord
 - [ ] All pushed to the repo under `data/recordings/<LABEL>/`
 - [ ] You've let the team lead know you're finished, so the data can be
