@@ -108,6 +108,26 @@ EXCLUDED_LABELS = ["Am", "Bm", "Cm", "Fm", "Gm"]
 # from CHORD_LABELS so confusion-matrix axes stay consistent between scripts.
 ACTIVE_LABELS = [label for label in CHORD_LABELS if label not in EXCLUDED_LABELS]
 
+# Which chords record_data.py will let you capture.
+#
+# This is deliberately NOT the same list as ACTIVE_LABELS. A chord has to be
+# recorded before there is any evidence about whether it belongs in the model,
+# so "what we collect" and "what we train on" are different questions.
+#
+# Bm is the live case. It is excluded from the model because it collapses the
+# B class on an unseen player: every arrangement we tested scored 54-57%
+# cross-person against 69.8% without it. The cause is that Bm is our only
+# single-person class, so the model learns one person's hands rather than the
+# chord. The fix is a second player's Bm, recorded with the correct x24432
+# barre - which cannot happen if the recorder refuses to capture Bm. Once that
+# data exists, re-run the comparison and move Bm into the model if it holds up.
+PENDING_LABELS = ["Bm"]
+
+RECORDABLE_LABELS = [
+    label for label in CHORD_LABELS
+    if label in ACTIVE_LABELS or label in PENDING_LABELS
+]
+
 # ---------------------------------------------------------------------------
 # Paths (all relative to the project root, so the scripts work from anywhere)
 # ---------------------------------------------------------------------------

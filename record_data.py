@@ -22,12 +22,15 @@ How to use it
     l          show/hide the neck alignment guide
     q          quit
 
-Only the chords the model actually trains on can be selected (config.ACTIVE_LABELS
-- currently A, B, C, D, Dm, E, Em, F, G). Am, Bm, Cm, Fm and Gm are recorded-but-
-excluded shapes (see src/config.py for why - each is geometrically identical to
-another chord once the features drop position). A key combination that would
-select one of them is refused with a message instead of saving to its folder, so
-this script cannot grow data for a class train.py will just filter back out.
+Only the chords we are still collecting can be selected (config.RECORDABLE_LABELS
+- currently A, B, C, D, Dm, E, Em, F, G and Bm). That list is the nine the model
+trains on plus any chord still under evaluation: Bm is not in the model today,
+but more of it is exactly what we need in order to decide whether it can be.
+
+Am, Cm, Fm and Gm are dropped for good and cannot be selected. Each is
+geometrically near-identical to another chord once the features drop position
+(see src/config.py), so more of them would only be filtered back out. A key
+combination that would select one is refused with a message instead of saving.
 
 A key toggle rather than Shift+letter is used for major/minor, because
 Shift's effect on cv2.waitKey() can vary with keyboard layout - a plain key
@@ -96,13 +99,13 @@ def parse_args():
 def count_existing_images():
     """Count images already on disk per chord, so the display shows totals.
 
-    Only over ACTIVE_LABELS: the excluded chords (Am, Bm, Cm, Fm, Gm) cannot be
+    Only over RECORDABLE_LABELS: the dropped chords (Am, Cm, Fm, Gm) cannot be
     selected any more, so there is nothing new to count for them here. Their
     existing images are untouched on disk - extract_landmarks.py still reads
     every folder regardless of what this script tracks.
     """
     counts = {}
-    for label in config.ACTIVE_LABELS:
+    for label in config.RECORDABLE_LABELS:
         folder = config.RECORDINGS_DIR / label
         if not folder.exists():
             counts[label] = 0
@@ -190,8 +193,8 @@ def draw_overlay(frame, label, minor_mode, counts, session_counts, session_id,
     # Per-chord totals on disk, with this session's contribution in brackets.
     # Split across two rows (majors, minors) - 14 labels on one line would run
     # off the edge of the frame.
-    majors = [chord for chord in config.ACTIVE_LABELS if not chord.endswith("m")]
-    minors = [chord for chord in config.ACTIVE_LABELS if chord.endswith("m")]
+    majors = [chord for chord in config.RECORDABLE_LABELS if not chord.endswith("m")]
+    minors = [chord for chord in config.RECORDABLE_LABELS if chord.endswith("m")]
     for row, chords in enumerate((majors, minors)):
         line = "  ".join(
             f"{chord}:{counts[chord]}(+{session_counts[chord]})" for chord in chords
@@ -218,7 +221,7 @@ def main():
     camera.set(cv2.CAP_PROP_FRAME_HEIGHT, config.FRAME_HEIGHT)
 
     counts = count_existing_images()
-    session_counts = {label: 0 for label in config.ACTIVE_LABELS}
+    session_counts = {label: 0 for label in config.RECORDABLE_LABELS}
     current_root = config.ROOT_NOTES[0]
     minor_mode = False
     auto_capture = False
@@ -226,8 +229,8 @@ def main():
     last_auto_capture_time = 0.0  # time.monotonic() of the last auto-saved frame
 
     print(f"session id: {session_id}")
-    print(f"recording {len(config.ACTIVE_LABELS)} chords: "
-          f"{', '.join(config.ACTIVE_LABELS)}")
+    print(f"recording {len(config.RECORDABLE_LABELS)} chords: "
+          f"{', '.join(config.RECORDABLE_LABELS)}")
     print("keys: a-g root | n major/minor | SPACE save | t auto-capture | "
           "l guide | q quit")
 
@@ -322,8 +325,8 @@ def main():
             elif key == ord("n"):
                 candidate_minor_mode = not minor_mode
                 candidate = current_root + ("m" if candidate_minor_mode else "")
-                if candidate not in config.ACTIVE_LABELS:
-                    print(f"{candidate} is excluded (structural collision, see "
+                if candidate not in config.RECORDABLE_LABELS:
+                    print(f"{candidate} is not being collected (see "
                           f"config.py) - staying on {current_label}")
                 else:
                     minor_mode = candidate_minor_mode
@@ -333,8 +336,8 @@ def main():
             elif key != 255 and chr(key) in config.LABEL_KEYS:  # 255 == no key pressed
                 candidate_root = config.LABEL_KEYS[chr(key)]
                 candidate = candidate_root + ("m" if minor_mode else "")
-                if candidate not in config.ACTIVE_LABELS:
-                    print(f"{candidate} is excluded (structural collision, see "
+                if candidate not in config.RECORDABLE_LABELS:
+                    print(f"{candidate} is not being collected (see "
                           f"config.py) - staying on {current_label}")
                 else:
                     current_root = candidate_root
@@ -344,7 +347,7 @@ def main():
     cv2.destroyAllWindows()
 
     print(f"\nsession {session_id} finished. Saved this session:")
-    for label in config.ACTIVE_LABELS:
+    for label in config.RECORDABLE_LABELS:
         print(f"  {label}: {session_counts[label]:4d}   (total on disk: {counts[label]})")
 
 
