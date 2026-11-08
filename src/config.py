@@ -54,11 +54,59 @@ CHORD_VOICINGS = {
     "Dm": "xx0231",   # open D minor
     "E": "022100",    # open E major
     "Em": "022000",   # open E minor
-    "F": "133211",    # F major barre (E-shape), full barre at the 1st fret
+    # "mini F": top four strings, index barring only B and high e at the 1st
+    # fret. Chosen over the full barre 133211 deliberately - the full barre
+    # differs from Fm (133111) by a single finger on a single fret, which put
+    # the two within 1.0 of each other in feature space. This shape sits 3.88
+    # away from Fm instead, at the cost of mild proximity to Dm (1.67), which
+    # is also a compact four-string shape.
+    "F": "xx3211",
     "Fm": "133111",   # F minor barre (Em-shape), full barre at the 1st fret
     "G": "320003",    # open G major
     "Gm": "355333",   # G minor barre (Em-shape), full barre at the 3rd fret
 }
+
+# ---------------------------------------------------------------------------
+# Which chords the classifier actually learns
+# ---------------------------------------------------------------------------
+
+# Four chords are recorded but excluded from classification. They are not bad
+# data - they are shapes this feature set provably cannot tell apart, because
+# the features are translation- and scale-invariant but deliberately ignore
+# *where on the neck* the hand sits:
+#
+#   Bm (x24432) and Cm (x35543)  - the identical A-shape minor barre, two frets apart
+#   Fm (133111) and Gm (355333)  - the identical E-shape minor barre, two frets apart
+#
+# Keeping them costs accuracy everywhere, because B (x24442) is only one finger
+# away from Bm and gets absorbed by it. Measured over 16 sessions, 8,744 rows,
+# leave-one-session-out, and on a held-out *person* (a groupmate's recordings,
+# never seen in training):
+#
+#   scheme                      classes   own unseen session   new person
+#   all 14                           14          63.0%            51.7%
+#   drop these four (this one)       10          71.6%            71.8%
+#   merge the pairs instead          12          72.7%            54.7%
+#
+# All seven letters survive as majors (A-G) plus Am, Dm and Em, so the project
+# still detects every chord A through G as originally scoped.
+#
+# The excluded images stay on disk: extract_landmarks.py still writes them to
+# the CSV and train.py filters them out here, so re-including them is a
+# one-line change rather than a re-recording job.
+#   Am (x02210) and E  (022100)  - the same three-finger shape, moved one string
+#
+# Am was added to this list on 2026-11-05 after live testing: the demo confused
+# Am and E constantly, and the confusion matrix agreed (274 errors, the second
+# largest). E is kept rather than Am because every letter A-G must be covered,
+# and A major already covers the letter A. A per-chord learning curve also
+# showed Am flat at +1.2 points over the last four training sessions, so the
+# collision is structural and more recording would not have fixed it.
+EXCLUDED_LABELS = ["Am", "Bm", "Cm", "Fm", "Gm"]
+
+# The labels the model is actually trained and evaluated on. Order is preserved
+# from CHORD_LABELS so confusion-matrix axes stay consistent between scripts.
+ACTIVE_LABELS = [label for label in CHORD_LABELS if label not in EXCLUDED_LABELS]
 
 # ---------------------------------------------------------------------------
 # Paths (all relative to the project root, so the scripts work from anywhere)
@@ -90,6 +138,23 @@ MAX_NUM_HANDS = 1
 # the accurate model is worth the extra milliseconds.
 MODEL_COMPLEXITY = 1
 
+# Which handedness label MediaPipe gives the fretting hand in OUR images.
+#
+# Measured on 2026-11-06 over 350 of our own recordings sampled across all 14
+# chord folders: MediaPipe answered "Right" for 311 of the 322 hands it found
+# (96.6%), at a mean confidence of 0.972. The label is a property of how our
+# camera sees the hand, not of which hand it is - the fretting hand is the
+# left one, but the webcam's point of view makes MediaPipe call it "Right".
+#
+# The useful consequence: a photograph taken from the mirrored point of view
+# reports the OPPOSITE label. That is a per-image flag for "this picture is
+# back to front relative to ours", and it is what extract_landmarks.py
+# --mirror auto uses to spot and correct a mirrored outside dataset. Our
+# features are deliberately not mirror-invariant (a left hand and a right hand
+# making the same shape are genuinely different feature vectors), so a
+# mirrored image MUST be flipped before it can be mixed with our data.
+CANONICAL_HANDEDNESS = "Right"
+
 # Settings for reading still images (extract_landmarks.py). static_image_mode
 # runs the palm detector on every image instead of tracking between frames.
 STATIC_MODE_SETTINGS = {
@@ -116,6 +181,7 @@ VIDEO_MODE_SETTINGS = {
 CAMERA_INDEX = 0          # change if you have more than one webcam
 FRAME_WIDTH = 1280
 FRAME_HEIGHT = 720
+MAX_DROPPED_FRAMES = 30   # give up if the camera fails this many reads in a row
 AUTO_CAPTURE_INTERVAL_SECONDS = 0.7  # in auto-capture mode, save one frame this often
 SMOOTHING_WINDOW = 7      # frames of prediction history smoothed in realtime.py
 

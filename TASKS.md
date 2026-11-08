@@ -1,5 +1,29 @@
 # Team tasks — data collection
 
+> ## ✅ Data collection is CLOSED — 5 Nov 2026
+>
+> **Do not record more images.** We have **9,528 images / 8,744 usable rows across
+> 16 sessions and two people**, which is well past the point where extra frames
+> changed the result. Teammate 1's A-D recordings came in on 2 Nov and are merged.
+>
+> The model is trained and the live demo is built. What is left is the write-up
+> and the defence, not more data.
+>
+> | | |
+> | --- | --- |
+> | Accuracy, unseen session | **74.6%** (MLP, leave-one-session-out, 16 sessions) |
+> | Accuracy, unseen **person** | **70.8%** (5 classes, chance 20%) |
+> | Chords classified | 9 — all of A-G plus Dm and Em |
+>
+> `Am`, `Bm`, `Cm`, `Fm` and `Gm` are recorded but **excluded from training**: each is
+> geometrically identical to another chord under a position-blind feature set.
+> See `## 4. Modeling` in [README.md](README.md). Their images stay in the repo.
+>
+> The rest of this file is kept as a record of how the data was collected, and
+> is the right reference if anyone needs to record a top-up session.
+
+---
+
 This assigns the image-collection work for Phase 1/2. Read
 [TEAMMATE_SETUP.md](TEAMMATE_SETUP.md) first if you haven't set up the project
 yet — this file assumes your environment already works.
@@ -101,13 +125,17 @@ for a specific angle you want to make sure is captured.
 | C | `x32010` | `x35543` | major open, **minor barre** (index at 3rd fret) |
 | D | `xx0232` | `xx0231` | both open |
 | E | `022100` | `022000` | both open |
-| F | `133211` | `133111` | **both barre**, full barre at 1st fret |
+| F | `xx3211` | `133111` | major is "mini F" (top 4 strings); **minor is a full barre** |
 | G | `320003` | `355333` | major open, **minor barre** (full barre at 3rd fret) |
 
 Columns are low E to high e strings; `x` = not played, `0` = open string,
 digits = fret number.
 
-For the barre chords (B, Bm, C minor, F, Fm, G minor): MediaPipe sometimes
+**Note on F:** use the "mini F" (`xx3211`, top four strings, index barring
+only B and high e) — *not* the full barre. The full barre differs from Fm by a
+single finger, which makes the two nearly indistinguishable to the model.
+
+For the barre chords (B, Bm, Cm, Fm, Gm): MediaPipe sometimes
 can't find a hand because the fingers lie flat and hide the knuckles. That's
 expected — if the on-screen status keeps saying "NO HAND" for several
 seconds, adjust your camera angle or lighting rather than forcing it; a shot

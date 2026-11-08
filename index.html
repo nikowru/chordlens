@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chord Project Status</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #f4f5f7;
+    --surface:   #ffffff;
+    --surface-2: #eceef1;
+    --line:      #d8dce1;
+    --ink:       #1b1f24;
+    --ink-soft:  #5c646f;
+    --accent:    #9a6a23;
+    --accent-bg: #f6ecd9;
+    --ok:        #2f6f4e;
+    --ok-bg:     #e2f0e8;
+    --warn:      #8a5a12;
+    --warn-bg:   #f8ecd5;
+    --bad:       #99342c;
+    --bad-bg:    #f8e3e1;
+    --display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+    --body: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:#14171b; --surface:#1c2026; --surface-2:#232830; --line:#333a44;
+      --ink:#e8eaed; --ink-soft:#9aa3b0; --accent:#d9a24e; --accent-bg:#33281a;
+      --ok:#76c79b; --ok-bg:#1b2c24; --warn:#ddab5c; --warn-bg:#312718;
+      --bad:#e2867c; --bad-bg:#32201e; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg:#14171b; --surface:#1c2026; --surface-2:#232830; --line:#333a44;
+    --ink:#e8eaed; --ink-soft:#9aa3b0; --accent:#d9a24e; --accent-bg:#33281a;
+    --ok:#76c79b; --ok-bg:#1b2c24; --warn:#ddab5c; --warn-bg:#312718;
+    --bad:#e2867c; --bad-bg:#32201e; color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0 16px 64px;
+    background: var(--bg); color: var(--ink);
+    font-family: var(--body); font-size: 15px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+
+  header { padding: 32px 0 20px; }
+  h1 {
+    font-family: var(--display); font-weight: 800;
+    font-size: clamp(28px, 5vw, 40px); letter-spacing: -0.02em;
+    margin: 0; text-wrap: balance;
+  }
+  .sub { color: var(--ink-soft); margin: 6px 0 0; font-size: 15px; }
+
+  .tiles {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 10px; margin-bottom: 14px;
+  }
+  .tile {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 10px; padding: 14px 16px;
+  }
+  .tile.hero { background: var(--ok-bg); border-color: var(--ok); }
+  .tile .k {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em;
+    color: var(--ink-soft); font-weight: 600;
+  }
+  .tile .v {
+    font-family: var(--display); font-weight: 700; font-size: 30px;
+    line-height: 1.15; margin-top: 4px; font-variant-numeric: tabular-nums;
+  }
+  .tile .v small { font-size: 15px; color: var(--ink-soft); font-weight: 600; }
+  .tile .note { font-size: 12px; color: var(--ink-soft); margin-top: 4px; }
+
+  .strip {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    background: var(--ok-bg); border: 1px solid var(--ok);
+    border-radius: 10px; padding: 12px 14px; margin-bottom: 22px;
+  }
+  .strip p { margin: 0; flex: 1 1 320px; font-size: 14px; }
+  code.kbd {
+    font-family: var(--mono); background: var(--surface);
+    border: 1px solid var(--line); border-bottom-width: 2px;
+    border-radius: 5px; padding: 1px 6px; font-size: 12.5px;
+  }
+  button {
+    font: inherit; font-weight: 600; font-size: 14px; cursor: pointer;
+    border-radius: 8px; border: 1px solid var(--line);
+    background: var(--surface); color: var(--ink); padding: 8px 14px;
+  }
+  button:hover { border-color: var(--accent); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  h2 {
+    font-family: var(--display); font-weight: 700; font-size: 19px;
+    letter-spacing: -0.01em; margin: 30px 0 10px;
+  }
+  .hint { color: var(--ink-soft); font-size: 13.5px; margin: -4px 0 12px; }
+
+  /* ---- checklist ---- */
+  .rows { display: flex; flex-direction: column; gap: 6px; }
+  .row {
+    display: grid; grid-template-columns: 30px 1fr 110px;
+    align-items: center; gap: 12px;
+    background: var(--surface); border: 1px solid var(--line);
+    border-left: 4px solid var(--line); border-radius: 9px; padding: 11px 14px;
+  }
+  .row.critical { border-left-color: var(--bad); }
+  .row.pri { border-left-color: var(--warn); }
+  .row.done { background: var(--ok-bg); border-left-color: var(--ok); }
+  .row.done .task { text-decoration: line-through; opacity: 0.65; }
+  .tick {
+    width: 20px; height: 20px; border-radius: 5px;
+    border: 2px solid var(--line); display: grid; place-items: center;
+    font-size: 13px; font-weight: 800; color: #fff;
+  }
+  .row.done .tick { background: var(--ok); border-color: var(--ok); }
+  .task { font-size: 14.5px; font-weight: 500; }
+  .task small { display: block; font-weight: 400; color: var(--ink-soft); font-size: 13px; margin-top: 2px; }
+  .task code { font-family: var(--mono); font-size: 12.5px; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 10px; padding: 16px 18px;
+  }
+  .card h3 { font-family: var(--display); font-size: 15px; margin: 0 0 8px; font-weight: 700; }
+  .card p { margin: 0 0 8px; font-size: 14px; }
+  .card p:last-child { margin-bottom: 0; }
+  .q { font-weight: 600; color: var(--accent); }
+
+  table.mini { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  table.mini th, table.mini td { text-align: left; padding: 4px 8px 4px 0; border-bottom: 1px solid var(--line); }
+  table.mini th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-soft); }
+  table.mini td.n { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+  table.mini tr:last-child td { border-bottom: none; }
+  .up { color: var(--ok); font-weight: 700; }
+  .down { color: var(--bad); font-weight: 700; }
+
+  figure { margin: 0; }
+  figure img {
+    width: 100%; height: auto; border: 1px solid var(--line);
+    border-radius: 9px; background: #fff;
+  }
+  figcaption { font-size: 13px; color: var(--ink-soft); margin-top: 6px; }
+  .missing {
+    padding: 14px; border: 1px dashed var(--line); border-radius: 9px;
+    font-size: 13px; color: var(--ink-soft); background: var(--surface-2);
+  }
+
+  footer { margin-top: 34px; color: var(--ink-soft); font-size: 13px; border-top: 1px solid var(--line); padding-top: 14px; }
+  @media (max-width: 720px) {
+    .row { grid-template-columns: 26px 1fr; row-gap: 6px; }
+    .row > button { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Chord Project Status</h1>
+  <p class="sub">Model trained, demo built. One targeted recording round left, then write-up and rehearsal.</p>
+</header>
+
+<div class="tiles">
+  <div class="tile hero">
+    <div class="k">Unseen session</div>
+    <div class="v">74.6<small>%</small></div>
+    <div class="note">MLP, leave-one-session-out, 16 sessions</div>
+  </div>
+  <div class="tile hero">
+    <div class="k">Unseen person</div>
+    <div class="v">70.8<small>%</small></div>
+    <div class="note">5 classes, chance 20%</div>
+  </div>
+  <div class="tile">
+    <div class="k">Chords</div>
+    <div class="v">9<small> / 14</small></div>
+    <div class="note">every letter A&ndash;G, plus Dm and Em</div>
+  </div>
+  <div class="tile">
+    <div class="k">Dataset</div>
+    <div class="v">8,744</div>
+    <div class="note">rows from 9,528 images, 16 sessions, 2 people</div>
+  </div>
+</div>
+
+<div class="strip">
+  <p><b>One targeted round left.</b> D, Dm and E are still climbing on the per-chord curve &mdash; everything else is flat. Full frame budget in the first checklist item below and in <code class="kbd">RECORDING_TRACKER.md</code>.</p>
+  <button id="resetBtn" type="button">Reset checklist</button>
+</div>
+
+<h2>Before the defence</h2>
+<p class="hint">Ordered by what breaks the demo if skipped. Ticks are saved in this browser.</p>
+<div class="rows" id="rows"></div>
+
+<h2>Results</h2>
+<div class="cards">
+  <div class="card">
+    <h3>Model comparison</h3>
+    <table class="mini">
+      <tr><th>Model</th><th class="n" style="text-align:right">Accuracy</th><th class="n" style="text-align:right">sd</th></tr>
+      <tr><td><b>MLP</b> (128, 64)</td><td class="n"><span class="up">74.6%</span></td><td class="n">10.1</td></tr>
+      <tr><td>SVM (RBF, C=10)</td><td class="n">73.4%</td><td class="n">10.1</td></tr>
+    </table>
+    <p style="margin-top:9px; font-size:13px; color:var(--ink-soft);">Worst held-out session 56.0%, best 90.4%. The spread is the honest measure of how much the setup matters.</p>
+  </div>
+  <div class="card">
+    <h3>Why 9 chords and not 14</h3>
+    <table class="mini">
+      <tr><th>Scheme</th><th class="n" style="text-align:right">Session</th><th class="n" style="text-align:right">Person</th></tr>
+      <tr><td>all 14</td><td class="n">63.0%</td><td class="n">51.7%</td></tr>
+      <tr><td>drop 4</td><td class="n">71.6%</td><td class="n">71.8%</td></tr>
+      <tr><td><b>+ drop Am</b></td><td class="n"><span class="up">74.6%</span></td><td class="n">70.8%</td></tr>
+      <tr><td>merge pairs</td><td class="n">72.7%</td><td class="n"><span class="down">54.7%</span></td></tr>
+    </table>
+    <p style="margin-top:9px; font-size:13px; color:var(--ink-soft);">B scored <b>6.1%</b> on a new person under the merge and <b>96.9%</b> once Bm was dropped. Excluding Am took E from <b>0.540 to 0.834</b> f1. Cross-person columns use different class counts, so they are not directly comparable.</p>
+  </div>
+  <div class="card">
+    <h3>What still fails</h3>
+    <table class="mini">
+      <tr><th>Pair</th><th class="n" style="text-align:right">Errors</th></tr>
+      <tr><td>A &harr; D</td><td class="n">296</td></tr>
+      <tr><td>C &harr; Dm</td><td class="n">289</td></tr>
+      <tr><td>Dm &harr; Em</td><td class="n">134</td></tr>
+      <tr><td>Em &harr; G</td><td class="n">119</td></tr>
+    </table>
+    <p style="margin-top:9px; font-size:13px; color:var(--ink-soft);">Shapes that differ only by which strings they sit on. Position-blind features cannot separate them &mdash; a design limitation, not a bug. The same pairs dominate on the unseen person, so the model fails <i>consistently</i>.</p>
+  </div>
+</div>
+
+<h2>Figures for the paper</h2>
+<p class="hint">Generated by <code class="kbd">train.py</code> into <code class="kbd">reports/</code>. If these show as broken, run <code class="kbd">python train.py</code>.</p>
+<div class="cards">
+  <figure>
+    <img src="reports/confusion_matrix.png" alt="Confusion matrix, leave-one-session-out, 9 chords" loading="lazy">
+    <figcaption><b>Figure 1.</b> Leave-one-session-out over 16 sessions, 74.6%. Counts in cells, shading row-normalised.</figcaption>
+  </figure>
+  <figure>
+    <img src="reports/confusion_matrix_holdout.png" alt="Confusion matrix on a held-out person" loading="lazy">
+    <figcaption><b>Figure 2.</b> A person the model never saw, 70.8% against 20% chance. Run <code>train.py --holdout-sessions 1189027a e587eb5b</code>.</figcaption>
+  </figure>
+</div>
+
+<h2>Questions the panel will ask</h2>
+<div class="cards">
+  <div class="card">
+    <h3>On method</h3>
+    <p><span class="q">&ldquo;How do you know it isn't memorising?&rdquo;</span> Frames from one sitting are near-duplicates, so a random split would test on data already seen. Every number uses leave-one-session-out: train on 15 sittings, test on the 16th. A random split would have read ~20&ndash;30 points higher and been fiction.</p>
+    <p><span class="q">&ldquo;Why not a CNN on the images?&rdquo;</span> With ~9,500 images from two people, a pixel model learns the room, the shirt and the lighting. Landmarks throw all of that away and keep geometry. It also runs on a CPU in real time and every feature can be named.</p>
+  </div>
+  <div class="card">
+    <h3>On results</h3>
+    <p><span class="q">&ldquo;Does it work for anyone else?&rdquo;</span> Yes, and it is measured: 70.8% on a person held out of training entirely, against 20% chance. Close to the 74.6% on unseen sittings of my own hands, which is the surprising part — the model does not depend much on whose hands it sees.</p>
+    <p><span class="q">&ldquo;Why are four chords missing?&rdquo;</span> They are recorded, not missing. Bm/Cm and Fm/Gm are the same shape at different frets; Am and E are the same shape one string apart. The features deliberately ignore position, so these collide by construction. Excluding them raised accuracy from 63.0% to 74.6% and took E from 0.540 to 0.834 f1.</p>
+  </div>
+  <div class="card">
+    <h3>On what you would do next</h3>
+    <p><span class="q">&ldquo;What is the biggest weakness?&rdquo;</span> A&harr;D and C&harr;Dm, for one reason: the features cannot tell which strings the hand is on. Em is weakest at 0.386 f1. Fixing it means detecting the neck itself and locating the hand against it, which is a different project.</p>
+    <p><span class="q">&ldquo;What was the biggest thing you learned?&rdquo;</span> That recording <i>variety</i> beats recording <i>volume</i>. At equal session count, sessions with varied grip beat sessions held still by +7.8 points, and 4,023 images were doing the work of about 1,900.</p>
+  </div>
+</div>
+
+<footer>
+  <span id="sync">Checklist saved in this browser. Numbers from <code>reports/</code>, generated 5 Nov 2026.</span>
+</footer>
+
+</div>
+
+<script>
+// What actually remains. "critical" = the demo fails at the defence without it.
+var TASKS = [
+  { id:"record", pri:1, t:"Record 3 targeted sessions, then re-run <code>extract_landmarks.py</code> and <code>train.py</code>",
+    d:"All 9 chords each session, weighted: E 80 frames, D 70, Dm 70, the other six 35 each (~500 frames, ~6 min). New session id each time, something physical changed between them. Full brief: RECORDING_TRACKER.md &rarr; STEP 1 BRIEF." },
+  { id:"demo",   critical:1, t:"Run <code>python realtime.py</code> and confirm the live demo works",
+    d:"Never been run against a real camera. This is the one untested piece of the project." },
+  { id:"backup", critical:1, t:"Record a screen capture of the demo working",
+    d:"Insurance. If the webcam fails in the room, you still have something to show." },
+  { id:"commit", pri:1, t:"Commit and push everything",
+    d:"train.py, realtime.py, config.py, README.md, TASKS.md, landmarks.csv, models/, reports/, and the new images." },
+  { id:"fig",    pri:1, t:"Put both confusion matrices in the paper",
+    d:"reports/confusion_matrix.png and reports/confusion_matrix_holdout.png." },
+  { id:"limits", pri:1, t:"Write the limitations section",
+    d:"A↔D, E↔Am, C↔Dm — and why a position-blind feature set cannot fix them." },
+  { id:"why9",   t:"Rehearse the answer to &ldquo;why only 9 chords?&rdquo;",
+    d:"The measured table, not an apology. Excluding them raised accuracy from 63.0% to 74.6%, and took E from 0.540 to 0.834 f1." },
+  { id:"loso",   t:"Rehearse the answer to &ldquo;how do you know it isn't memorising?&rdquo;",
+    d:"Leave-one-session-out, and why a random split would have been dishonest." },
+  { id:"numbers",t:"Learn the four headline numbers cold",
+    d:"74.6% unseen session · 70.8% unseen person · 9 chords · 8,744 rows from 16 sessions." }
+];
+var STORE_KEY = "chord-defence-checklist";
+var done = {};
+
+function load() {
+  try {
+    var raw = window.localStorage.getItem(STORE_KEY);
+    if (raw) { done = JSON.parse(raw) || {}; }
+  } catch (e) {
+    document.getElementById("sync").textContent =
+      "Ticks will not be remembered in this browser, but the page still works.";
+  }
+}
+function save() {
+  try { window.localStorage.setItem(STORE_KEY, JSON.stringify(done)); }
+  catch (e) { /* nothing to do; the ticks still show on screen */ }
+}
+
+function render() {
+  var rows = document.getElementById("rows");
+  rows.innerHTML = "";
+  TASKS.forEach(function (task) {
+    var isDone = !!done[task.id];
+    var row = document.createElement("div");
+    row.className = "row" + (isDone ? " done" : task.critical ? " critical" : task.pri ? " pri" : "");
+
+    var tick = document.createElement("div");
+    tick.className = "tick";
+    tick.textContent = isDone ? "✓" : "";
+
+    var body = document.createElement("div");
+    body.className = "task";
+    body.innerHTML = task.t + "<small>" + task.d + "</small>";
+
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = isDone ? "Done" : "Mark done";
+    btn.setAttribute("aria-pressed", isDone ? "true" : "false");
+    btn.addEventListener("click", function () {
+      done[task.id] = !done[task.id];
+      render();
+      save();
+    });
+
+    row.appendChild(tick);
+    row.appendChild(body);
+    row.appendChild(btn);
+    rows.appendChild(row);
+  });
+}
+
+document.getElementById("resetBtn").addEventListener("click", function () {
+  done = {}; render(); save();
+});
+
+load();
+render();
+</script>
+</body>
+</html>

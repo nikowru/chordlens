@@ -22,6 +22,13 @@ How to use it
     l          show/hide the neck alignment guide
     q          quit
 
+Only the chords the model actually trains on can be selected (config.ACTIVE_LABELS
+- currently A, B, C, D, Dm, E, Em, F, G). Am, Bm, Cm, Fm and Gm are recorded-but-
+excluded shapes (see src/config.py for why - each is geometrically identical to
+another chord once the features drop position). A key combination that would
+select one of them is refused with a message instead of saving to its folder, so
+this script cannot grow data for a class train.py will just filter back out.
+
 A key toggle rather than Shift+letter is used for major/minor, because
 Shift's effect on cv2.waitKey() can vary with keyboard layout - a plain key
 works the same on every machine.
@@ -87,9 +94,15 @@ def parse_args():
 
 
 def count_existing_images():
-    """Count images already on disk per chord, so the display shows totals."""
+    """Count images already on disk per chord, so the display shows totals.
+
+    Only over ACTIVE_LABELS: the excluded chords (Am, Bm, Cm, Fm, Gm) cannot be
+    selected any more, so there is nothing new to count for them here. Their
+    existing images are untouched on disk - extract_landmarks.py still reads
+    every folder regardless of what this script tracks.
+    """
     counts = {}
-    for label in config.CHORD_LABELS:
+    for label in config.ACTIVE_LABELS:
         folder = config.RECORDINGS_DIR / label
         if not folder.exists():
             counts[label] = 0
@@ -177,8 +190,8 @@ def draw_overlay(frame, label, minor_mode, counts, session_counts, session_id,
     # Per-chord totals on disk, with this session's contribution in brackets.
     # Split across two rows (majors, minors) - 14 labels on one line would run
     # off the edge of the frame.
-    majors = [chord for chord in config.CHORD_LABELS if not chord.endswith("m")]
-    minors = [chord for chord in config.CHORD_LABELS if chord.endswith("m")]
+    majors = [chord for chord in config.ACTIVE_LABELS if not chord.endswith("m")]
+    minors = [chord for chord in config.ACTIVE_LABELS if chord.endswith("m")]
     for row, chords in enumerate((majors, minors)):
         line = "  ".join(
             f"{chord}:{counts[chord]}(+{session_counts[chord]})" for chord in chords
@@ -205,7 +218,7 @@ def main():
     camera.set(cv2.CAP_PROP_FRAME_HEIGHT, config.FRAME_HEIGHT)
 
     counts = count_existing_images()
-    session_counts = {label: 0 for label in config.CHORD_LABELS}
+    session_counts = {label: 0 for label in config.ACTIVE_LABELS}
     current_root = config.ROOT_NOTES[0]
     minor_mode = False
     auto_capture = False
@@ -213,16 +226,38 @@ def main():
     last_auto_capture_time = 0.0  # time.monotonic() of the last auto-saved frame
 
     print(f"session id: {session_id}")
+    print(f"recording {len(config.ACTIVE_LABELS)} chords: "
+          f"{', '.join(config.ACTIVE_LABELS)}")
     print("keys: a-g root | n major/minor | SPACE save | t auto-capture | "
           "l guide | q quit")
+
+    # The odd dropped frame is normal, but a camera that has been unplugged or
+    # grabbed by another app fails every read. Without a limit the loop spins
+    # forever printing, and never reaches the key handling below - so not even
+    # 'q' would get you out.
+    dropped_in_a_row = 0
 
     # Live video settings: detect once, then track between frames.
     with mp_hands.Hands(**config.VIDEO_MODE_SETTINGS) as hands:
         while True:
             ok, frame = camera.read()
             if not ok:
+                dropped_in_a_row += 1
+                if dropped_in_a_row >= config.MAX_DROPPED_FRAMES:
+                    print(
+                        f"\nThe camera stopped returning frames "
+                        f"({dropped_in_a_row} in a row). Common causes:\n"
+                        "  - another app has the camera (Messenger, Zoom, Teams, "
+                        "a browser tab, the Camera app)\n"
+                        "  - the webcam was unplugged or went to sleep\n"
+                        "  - Windows camera privacy settings are blocking it\n"
+                        f"  - wrong camera: try 'python record_data.py --camera 1'\n"
+                        f"\nNothing was lost; images saved this session are on disk."
+                    )
+                    break
                 print("Dropped a frame from the camera, retrying...")
                 continue
+            dropped_in_a_row = 0
 
             if args.mirror:
                 frame = cv2.flip(frame, 1)
@@ -285,20 +320,31 @@ def main():
                 auto_capture = not auto_capture
                 print(f"auto-capture {'ON' if auto_capture else 'OFF'}")
             elif key == ord("n"):
-                minor_mode = not minor_mode
-                print(f"mode -> {'minor' if minor_mode else 'major'}")
+                candidate_minor_mode = not minor_mode
+                candidate = current_root + ("m" if candidate_minor_mode else "")
+                if candidate not in config.ACTIVE_LABELS:
+                    print(f"{candidate} is excluded (structural collision, see "
+                          f"config.py) - staying on {current_label}")
+                else:
+                    minor_mode = candidate_minor_mode
+                    print(f"mode -> {'minor' if minor_mode else 'major'}")
             elif key == ord("l"):
                 show_guide = not show_guide
             elif key != 255 and chr(key) in config.LABEL_KEYS:  # 255 == no key pressed
-                current_root = config.LABEL_KEYS[chr(key)]
-                new_label = current_root + ("m" if minor_mode else "")
-                print(f"label -> {new_label} ({config.CHORD_VOICINGS[new_label]})")
+                candidate_root = config.LABEL_KEYS[chr(key)]
+                candidate = candidate_root + ("m" if minor_mode else "")
+                if candidate not in config.ACTIVE_LABELS:
+                    print(f"{candidate} is excluded (structural collision, see "
+                          f"config.py) - staying on {current_label}")
+                else:
+                    current_root = candidate_root
+                    print(f"label -> {candidate} ({config.CHORD_VOICINGS[candidate]})")
 
     camera.release()
     cv2.destroyAllWindows()
 
     print(f"\nsession {session_id} finished. Saved this session:")
-    for label in config.CHORD_LABELS:
+    for label in config.ACTIVE_LABELS:
         print(f"  {label}: {session_counts[label]:4d}   (total on disk: {counts[label]})")
 
 

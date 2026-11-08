@@ -54,8 +54,8 @@ chord-detection/
     features.py      landmarks -> 85-element feature vector (pure function)
   record_data.py     webcam capture tool for building my own dataset
   extract_landmarks.py   images -> data/landmarks.csv
-  train.py           Phase 2 (not written yet)
-  realtime.py        Phase 3 (not written yet)
+  train.py           Phase 2: trains and evaluates, writes models/ and reports/
+  realtime.py        Phase 3: live webcam demo using the saved model
 ```
 
 ---
@@ -97,15 +97,24 @@ in the dataset uses the shape below. Strings are written low E to high e;
 | C | `x32010` | open | `x35543` | **barre** (Am-shape, index at 3rd fret) |
 | D | `xx0232` | open | `xx0231` | open |
 | E | `022100` | open | `022000` | open |
-| F | `133211` | **barre**, full barre at 1st fret | `133111` | **barre**, full barre at 1st fret |
+| F | `xx3211` | "mini F", top 4 strings, index barres B and e | `133111` | **barre**, full barre at 1st fret |
 | G | `320003` | open | `355333` | **barre** (Em-shape, full barre at 3rd fret) |
 
-**6 of the 14 chords are barre chords: B, Bm, C minor, F, Fm, G minor.** The
-fingers lie flat along the fretboard on these, which hides the knuckles from
-the camera, so MediaPipe detects a hand less reliably on them.
+**5 of the 14 chords are full barre chords: B, Bm, Cm, Fm, Gm.** The fingers
+lie flat along the fretboard on these, which hides the knuckles from the
+camera, so MediaPipe detects a hand less reliably on them. (F uses the "mini F"
+shape instead of the full barre — see the note below the table.)
 `extract_landmarks.py` therefore reports detection and failure counts per
 chord rather than an overall number — a low detection rate on the barre
 chords is expected and is something to discuss, not hide.
+
+**Why F uses "mini F" rather than the full barre.** The full barre `133211`
+differs from Fm `133111` by one finger on one fret, so the two shapes would sit
+almost on top of each other in feature space. Measured on our own recordings,
+the mini F shape sits 3.88 from Fm against a typical inter-chord distance of
+4.50 — comfortably separable. The trade is mild proximity to Dm (1.67), which
+is also a compact four-string shape. This avoids designing in a collision
+between a chord and its own minor.
 
 ### Collecting my own data
 
@@ -187,24 +196,148 @@ column marks which rows are "the same underlying shot":
 
 Phase 2 splits on this column with `GroupShuffleSplit` / `GroupKFold`.
 
-## 4. Modeling — Phase 2, not written yet
+## 4. Modeling
 
-`train.py` will read `data/landmarks.csv` and:
+```powershell
+python train.py
+```
 
-- split roughly 60% train / 20% validation / 20% test, **grouped** so no group
-  appears in more than one split;
-- train an SVM (linear and RBF kernels) and an MLP (tuned hidden layer sizes),
-  using the validation set for tuning;
-- re-check the choice with grouped k-fold cross-validation;
-- save the best model to `models/` with joblib.
+`train.py` reads `data/landmarks.csv` and never touches an image. It trains two
+candidates and picks the better one:
 
-## 5. Evaluation — Phase 2, not written yet
+| Model | Settings |
+| --- | --- |
+| SVM | RBF kernel, `C=10`, `gamma="scale"` |
+| MLP | hidden layers `(128, 64)`, `max_iter=800` |
 
-Reported on the **test set only**: overall accuracy, per-class precision,
-recall and F1, and a confusion matrix saved to `reports/`.
+Both are wrapped in a `StandardScaler` **inside** a pipeline. This matters: the
+85 features are on very different scales (normalised coordinates sit near 0,
+joint angles run to pi), and putting the scaler in the pipeline means it is
+refitted on each training fold, so the test fold never influences the scaling.
+Scaling once up front would leak information and inflate the score.
 
-## 6. Deployment — Phase 3, not written yet
+### Which chords are learned
 
-`realtime.py` will open the webcam, extract the same 85 features per frame,
-predict with the saved model, and display the chord and confidence on screen,
-smoothed over the last few frames to stop the label flickering.
+Nine of the fourteen. `Am`, `Bm`, `Cm`, `Fm` and `Gm` are recorded and
+extracted but excluded at training time, because each is geometrically
+identical to another chord under these features:
+
+- `Bm` (`x24432`) and `Cm` (`x35543`) are the same A-shape minor barre, two frets apart
+- `Fm` (`133111`) and `Gm` (`355333`) are the same E-shape minor barre, two frets apart
+- `Am` (`x02210`) and `E` (`022100`) are the same three-finger shape moved one string
+
+`Am` was excluded last, on 2026-11-05, after live testing showed the demo
+confusing it with `E` constantly. `E` was kept rather than `Am` because every
+letter A-G must be covered and A major already covers the letter A. The effect
+was large and one-sided: `E` went from 0.540 to **0.834** f1.
+
+The features are translation- and scale-invariant but deliberately ignore
+*where on the neck* the hand sits, so no amount of data separates these pairs.
+Keeping them also costs accuracy elsewhere, because `B` (`x24442`) is one finger
+from `Bm` and gets absorbed by it. Measured over 16 sessions and 8,744 rows:
+
+| Scheme | Classes | Unseen session | Unseen person |
+| --- | --- | --- | --- |
+| all 14 | 14 | 63.0% | 51.7% |
+| drop those four | 10 | 71.6% | 71.8% (6 cls) |
+| **also drop `Am`** | **9** | **74.6%** | **70.8%** (5 cls) |
+| merge the pairs instead | 12 | 72.7% | 54.7% |
+
+All seven letters survive as majors (A-G) plus `Am`, `Dm` and `Em`, so every
+chord A through G is still detected. The list lives in `src/config.py` as
+`EXCLUDED_LABELS`, so re-including them is a one-line change, and
+`python train.py --all-labels` reproduces the 14-class row above.
+
+## 5. Evaluation
+
+### Leave-one-session-out, not a random split
+
+Frames from one recording sitting are near-duplicates of each other. Splitting
+them randomly would test the model on data it had effectively memorised, and
+the reported accuracy would be fiction - on this dataset, roughly 20-30 points
+too high.
+
+So `train.py` trains on every session but one, tests on the session held out,
+and repeats for all 16. Every number below is accuracy on a sitting the model
+has never seen.
+
+| Model | Accuracy | sd | Worst session | Best session |
+| --- | --- | --- | --- | --- |
+| SVM | 73.4% | 10.1 | 55.3% | 88.9% |
+| **MLP** | **74.6%** | 10.1 | 56.0% | 90.4% |
+
+Per chord (MLP, f1-score): `F` 0.948, `B` 0.879, `E` 0.834, `A` 0.748, `D` 0.729,
+`Dm` 0.657, `G` 0.635, `C` 0.630, `Em` 0.386.
+
+**A caution on comparing the two cross-person numbers.** Excluding a chord also
+removes it from the held-out person's test set, so the 10-class model was tested
+on 6 classes and the 9-class model on 5. Measured against chance the cross-person
+result did *not* improve (4.3x vs 3.5x); the gain from excluding `Am` is in
+same-person accuracy, and the write-up should say so.
+
+### The harder test: an unseen person
+
+Two of the 16 sessions were recorded by a different person. Holding them out
+entirely answers the question a demo actually faces:
+
+```powershell
+python train.py --holdout-sessions 1189027a e587eb5b
+```
+
+### Remaining confusions, and why they are structural
+
+| Pair | Errors | Cause |
+| --- | --- | --- |
+| A <-> D | 304 | `x02220` vs `xx0232`, both compact three-finger shapes |
+| E <-> Am | 274 | the same shape on different strings |
+| C <-> Dm | 216 | `x32010` vs `xx0231` |
+
+These follow directly from the feature design: a position-blind feature set
+cannot distinguish shapes that differ only by which strings they sit on. This
+is a documented limitation of the approach, not a bug to be fixed with more
+data, and published work meets the same wall.
+
+### Outputs
+
+| File | Contents |
+| --- | --- |
+| `reports/confusion_matrix.png` | row-normalised matrix with counts |
+| `reports/classification_report.txt` | per-class precision, recall, f1 |
+| `reports/per_session_scores.csv` | accuracy for each held-out session |
+| `models/chord_model.joblib` | the fitted pipeline |
+| `models/chord_model_meta.json` | labels, feature order, scores, provenance |
+
+## 6. Deployment
+
+```powershell
+python realtime.py
+```
+
+`realtime.py` opens the webcam, runs MediaPipe in video mode, converts the 21
+landmarks into the same 85 features, and predicts with the saved model.
+
+**Prediction smoothing.** A single frame is weak evidence - a finger blurs, the
+hand turns, the label flips. But a chord is *held* for seconds, so the frames
+either side of a bad one are usually right. `realtime.py` takes the majority
+vote over the last `config.SMOOTHING_WINDOW` frames, which was measured on this
+dataset as worth up to +9.5 points. The display shows both the raw per-frame
+guess and the smoothed one, so the effect is visible rather than hidden.
+
+**Feature-order safety.** The model's metadata records the exact feature order
+used at training time. If `src/features.py` changes afterwards, the columns
+would silently shift and every prediction would be quietly wrong - the worst
+kind of bug, because the demo still appears to work. `realtime.py` compares the
+two lists at startup and refuses to run on a mismatch.
+
+| Key | Action |
+| --- | --- |
+| `q` | quit |
+| `l` | show/hide the hand skeleton |
+| `h` | show/hide the help text |
+
+Useful flags: `--camera 1` for a second webcam, `--window 11` for a longer vote,
+`--min-confidence 0.5` to show nothing when the model is unsure.
+
+**Do not use `--mirror`.** The model was trained on unmirrored frames, and
+mirroring turns the fretting hand into the other hand as far as MediaPipe is
+concerned, which invalidates every feature.

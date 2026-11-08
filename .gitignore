@@ -5,3 +5,8 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+
+# downloaded public datasets (not ours to redistribute, and far too big)
+guitar-chords.v1i.folder/
+data/external/
+Guitar Chord.v1i.coco-segmentation/

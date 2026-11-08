@@ -43,6 +43,32 @@ keep whole groups together with GroupShuffleSplit / GroupKFold.
                      C_photo12_jpg.rf.4f1c....jpg - everything from ".rf." on is
                      the augmentation id, so stripping it makes all copies of
                      one photo share a group.
+
+The "--mirror" option and why it matters
+----------------------------------------
+Our 85 features are translation- and scale-invariant but deliberately NOT
+mirror-invariant: a left hand and a right hand forming the same shape produce
+genuinely different feature vectors. So an outside dataset photographed from
+the opposite side of the guitar is useless as-is - every one of its chords
+would look like a shape our model has never seen.
+
+The fix is to flip those images left-right before extracting landmarks, and
+the way to know which images need it is MediaPipe's own handedness output.
+Our images report config.CANONICAL_HANDEDNESS ("Right"); a mirrored image
+reports the opposite. So:
+
+    --mirror none   (default) extract exactly as the image is stored. Correct
+                    for our own recordings, which are already consistent.
+    --mirror auto   per image, try it as-is; if the hand does not report the
+                    canonical handedness, try the flipped copy and keep that
+                    one if it does. Use this for any outside dataset - it also
+                    copes with a dataset that is only partly mirrored, which
+                    is common when photos were pooled from several sources.
+    --mirror all    flip every image unconditionally. Only for a dataset you
+                    have already confirmed is uniformly back to front.
+
+"auto" costs a second MediaPipe pass on the images that need checking, so it
+is slower. That only matters once per dataset.
 """
 
 import argparse
@@ -80,6 +106,13 @@ def parse_args():
         default=str(config.LANDMARKS_CSV),
         help="output CSV path, appended to if it exists (default: %(default)s)",
     )
+    parser.add_argument(
+        "--mirror",
+        choices=["none", "auto", "all"],
+        default="none",
+        help="correct left-right mirrored images; see the module docstring "
+             "(default: %(default)s)",
+    )
     return parser.parse_args()
 
 
@@ -111,6 +144,69 @@ def group_for(path, source):
     if ".rf." in path.name:
         return path.name.split(".rf.")[0]
     return stem
+
+
+def run_hands(hands, image):
+    """
+    Run MediaPipe on one image.
+
+    Returns (landmark_array, handedness_label, handedness_score), or None when
+    no hand was found. max_num_hands is 1, so there is at most one result.
+    """
+    results = hands.process(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+    if not results.multi_hand_landmarks:
+        return None
+    classification = results.multi_handedness[0].classification[0]
+    return (
+        landmarks_to_array(results.multi_hand_landmarks[0]),
+        classification.label,
+        classification.score,
+    )
+
+
+def detect_hand(hands, image, mode):
+    """
+    Find the fretting hand, flipping the image first if the mode calls for it.
+
+    Returns (landmark_array, handedness_label, was_flipped, matched_canonical)
+    or None when no hand is found in either orientation. See the "--mirror"
+    section of the module docstring for what each mode is for.
+    """
+    canonical = config.CANONICAL_HANDEDNESS
+
+    if mode == "all":
+        # Caller has already confirmed the whole dataset is back to front.
+        found = run_hands(hands, cv2.flip(image, 1))
+        return None if found is None else (found[0], found[1], True, found[1] == canonical)
+
+    direct = run_hands(hands, image)
+
+    if mode == "none":
+        return None if direct is None else (direct[0], direct[1], False, direct[1] == canonical)
+
+    # mode == "auto". If the image already reads the way ours do, we are done
+    # and the second MediaPipe pass is skipped.
+    if direct is not None and direct[1] == canonical:
+        return direct[0], direct[1], False, True
+
+    flipped = run_hands(hands, cv2.flip(image, 1))
+    if flipped is not None and flipped[1] == canonical:
+        # The image was mirrored relative to ours; flipping it fixed that.
+        return flipped[0], flipped[1], True, True
+
+    # Neither orientation reads as ours. This happens on a hand MediaPipe is
+    # unsure about, often a barre chord with the knuckles hidden. Rather than
+    # discard the image, keep whichever orientation MediaPipe was more
+    # confident in and flag it, so the summary can report how many there were.
+    if direct is not None and flipped is not None:
+        if flipped[2] > direct[2]:
+            return flipped[0], flipped[1], True, False
+        return direct[0], direct[1], False, False
+    if direct is not None:
+        return direct[0], direct[1], False, False
+    if flipped is not None:
+        return flipped[0], flipped[1], True, False
+    return None
 
 
 def iter_images(root):
@@ -145,9 +241,17 @@ def main():
     failed = {label: 0 for label in config.CHORD_LABELS}
     failed_paths = []
 
+    # Mirror bookkeeping, reported at the end so a dataset's orientation is
+    # never corrected silently.
+    flipped_count = 0
+    unmatched_count = 0
+
     print(f"root   : {root}")
     print(f"source : {args.source}")
     print(f"output : {out_path} ({'new file' if write_header else 'appending'})")
+    print(f"mirror : {args.mirror}"
+          + (f" (canonical handedness: {config.CANONICAL_HANDEDNESS})"
+             if args.mirror != "none" else ""))
     print()
 
     with open(out_path, "a", newline="", encoding="utf-8") as handle:
@@ -166,17 +270,23 @@ def main():
                     continue
 
                 height, width = image.shape[:2]
-                results = hands.process(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+                found = detect_hand(hands, image, args.mirror)
 
-                if not results.multi_hand_landmarks:
+                if found is None:
                     # No hand found. Common for B and F, where the barre hides
                     # the knuckles. Logged rather than silently dropped.
                     failed[label] += 1
                     failed_paths.append((image_path, "no hand detected"))
                     continue
 
-                # max_num_hands is 1, so there is exactly one entry here.
-                landmarks = landmarks_to_array(results.multi_hand_landmarks[0])
+                landmarks, handedness, was_flipped, matched = found
+                if was_flipped:
+                    flipped_count += 1
+                if not matched:
+                    unmatched_count += 1
+
+                # Flipping does not change the frame's shape, so the aspect
+                # ratio is the same either way.
                 features = extract_features(landmarks, aspect_ratio=width / height)
 
                 relative = image_path.relative_to(config.PROJECT_ROOT) \
@@ -202,6 +312,21 @@ def main():
     overall = total_detected + total_failed
     rate = f"{100 * total_detected / overall:.1f}%" if overall else "-"
     print(f"  {'ALL':<6}{total_detected:>10}{total_failed:>8}{overall:>8}{rate:>8}")
+
+    # ----------------------------------------------------------- mirror report
+    if args.mirror != "none" and total_detected:
+        share = 100 * flipped_count / total_detected
+        print(f"\nmirror correction ({args.mirror})")
+        print(f"  flipped          {flipped_count:>6} of {total_detected} "
+              f"({share:.1f}%)")
+        print(f"  handedness still "
+              f"not {config.CANONICAL_HANDEDNESS}: {unmatched_count} "
+              f"({100 * unmatched_count / total_detected:.1f}%)")
+        # A dataset should be clearly one thing or the other. Anything in
+        # between usually means the images were pooled from several sources.
+        if args.mirror == "auto" and 10 < share < 90:
+            print("  NOTE: this dataset is only partly mirrored - inspect it "
+                  "before trusting the labels.")
 
     if failed_paths:
         print(f"\n{len(failed_paths)} image(s) skipped:")
