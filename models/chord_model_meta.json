@@ -1,5 +1,5 @@
 {
-  "created": "2026-11-09T23:15:34",
+  "created": "2026-11-10T00:49:14",
   "model": "logreg",
   "labels": [
     "A",
@@ -107,13 +107,11 @@
     "angle_pinky_dip"
   ],
   "n_features": 85,
-  "n_rows": 9071,
-  "n_sessions": 18,
-  "leave_one_session_out_accuracy": 0.7891,
-  "leave_one_session_out_std": 0.0934,
-  "holdout_sessions": [
-    "79ef64ac"
-  ],
-  "holdout_accuracy": 0.6912,
+  "n_rows": 9592,
+  "n_sessions": 22,
+  "leave_one_session_out_accuracy": 0.794,
+  "leave_one_session_out_std": 0.0783,
+  "holdout_sessions": [],
+  "holdout_accuracy": null,
   "source_csv": "E:\\Neos files\\Projects and Codings\\Personal Projects\\guitar-chord-detection\\data\\landmarks.csv"
 }
