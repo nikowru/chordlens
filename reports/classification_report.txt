@@ -1,22 +1,22 @@
-Model          : MLP
-Evaluation     : leave-one-session-out over 15 sessions
-Rows           : 5023
+Model          : LOGREG
+Evaluation     : leave-one-session-out over 16 sessions
+Rows           : 7983
 Classes        : 9 (A, B, C, D, Dm, E, Em, F, G)
-Mean accuracy  : 77.1%  (sd 10.0)
-Generated      : 2026-11-08 15:04
+Mean accuracy  : 78.9%  (sd 9.5)
+Generated      : 2026-11-09 22:49
 
               precision    recall  f1-score   support
 
-           A      0.680     0.756     0.716       856
-           B      0.895     0.955     0.924       511
-           C      0.595     0.773     0.672       366
-           D      0.729     0.709     0.719       611
-          Dm      0.810     0.789     0.799       588
-           E      0.811     0.805     0.808       478
-          Em      0.673     0.552     0.607       496
-           F      0.938     0.953     0.946       601
-           G      0.800     0.605     0.689       516
+           A      0.598     0.762     0.670      1173
+           B      0.916     0.796     0.851       861
+           C      0.604     0.519     0.558       713
+           D      0.775     0.769     0.772       958
+          Dm      0.653     0.738     0.693       939
+           E      0.803     0.845     0.824       828
+          Em      0.716     0.587     0.645       846
+           F      0.853     0.865     0.859       823
+           G      0.877     0.743     0.805       842
 
-    accuracy                          0.768      5023
-   macro avg      0.770     0.766     0.764      5023
-weighted avg      0.772     0.768     0.767      5023
+    accuracy                          0.741      7983
+   macro avg      0.755     0.736     0.742      7983
+weighted avg      0.750     0.741     0.742      7983

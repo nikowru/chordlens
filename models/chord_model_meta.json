@@ -1,6 +1,6 @@
 {
-  "created": "2026-11-08T15:04:59",
-  "model": "mlp",
+  "created": "2026-11-09T22:49:24",
+  "model": "logreg",
   "labels": [
     "A",
     "B",
@@ -107,14 +107,14 @@
     "angle_pinky_dip"
   ],
   "n_features": 85,
-  "n_rows": 6111,
-  "n_sessions": 17,
-  "leave_one_session_out_accuracy": 0.7707,
-  "leave_one_session_out_std": 0.0995,
+  "n_rows": 9071,
+  "n_sessions": 18,
+  "leave_one_session_out_accuracy": 0.7889,
+  "leave_one_session_out_std": 0.0945,
   "holdout_sessions": [
     "1189027a",
     "e587eb5b"
   ],
-  "holdout_accuracy": 0.7188,
-  "source_csv": "E:\\Neos files\\Projects and Codings\\Personal Projects\\guitar-chord-detection\\data\\landmarks.csv"
+  "holdout_accuracy": 0.852,
+  "source_csv": "E:\\Neos files\\Projects and Codings\\Personal Projects\\guitar-chord-detection\\data\\landmarks_rebuild.csv"
 }

@@ -4,7 +4,7 @@ train.py - train and evaluate the chord classifier on hand-landmark features.
 CRISP-DM stage: modeling and evaluation.
 
 This script never sees an image. It reads the feature table written by
-extract_landmarks.py and trains classical models (SVM and MLP) on the 85
+extract_landmarks.py and trains classical models (logistic regression, SVM and MLP) on the 85
 engineered landmark features from src/features.py. That is the whole point of
 the project's design: the model learns hand *geometry*, not pixels, so it
 cannot quietly memorise a background, a shirt, or the lighting in one room.
@@ -57,6 +57,7 @@ matplotlib.use("Agg")          # no GUI needed; write PNG files directly
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from sklearn.model_selection import LeaveOneGroupOut
 from sklearn.neural_network import MLPClassifier
@@ -69,18 +70,52 @@ from src.features import FEATURE_NAMES
 
 
 # ---------------------------------------------------------------------------
-# The two candidate models
+# The candidate models
 # ---------------------------------------------------------------------------
 #
-# Both are wrapped in a StandardScaler. The 85 features are on wildly different
-# scales - normalised coordinates sit near 0, joint angles run to pi - and both
-# an RBF SVM and a neural network are sensitive to that. Putting the scaler
-# *inside* the pipeline matters: it is refitted on each training fold, so the
-# test fold never influences the scaling. Scaling once up front would leak.
+# All are wrapped in a StandardScaler. The 85 features are on wildly different
+# scales - normalised coordinates sit near 0, joint angles run to pi - and every
+# model here is sensitive to that. Putting the scaler *inside* the pipeline
+# matters: it is refitted on each training fold, so the test fold never
+# influences the scaling. Scaling once up front would leak.
+#
+# Why these three, measured over 11 algorithms on 12,302 rows (2026-11-09),
+# leave-one-session-out / held-out person:
+#
+#   Linear SVM            79.2% / 80.2%   <- best, but no predict_proba
+#   logistic regression   78.9% / 80.6%   <- shipped
+#   RBF SVM               76.4% / 77.8%
+#   MLP                   76.2% / 77.9%
+#   LDA                   75.5% / 79.1%
+#   HistGradientBoosting  69.7% / 72.4%
+#   random forest         64.7% / 70.7%
+#   extra trees           61.0% / 67.2%
+#   k-NN                  54.9% / 60.2%
+#   decision tree         51.3% / 47.5%
+#   naive Bayes           36.8% / 50.8%
+#
+# The headline result is that the two *linear* models beat both the RBF SVM and
+# the neural network, and were steadier across sessions (sd 8.9 vs 10.3). The 85
+# features already do the hard work, leaving the classes close to linearly
+# separable; the higher-capacity models spend their extra capacity memorising
+# session-specific quirks (one room's lighting, one person's camera angle)
+# rather than learning chord shape.
+#
+# LinearSVC scored highest but has no predict_proba, which realtime.py needs for
+# its confidence display, and it was the weaker of the two linear models on an
+# unseen person. Logistic regression gives native calibrated probabilities at
+# effectively the same accuracy, so that is the one shipped. The RBF SVM and MLP
+# are kept as the non-linear comparison the evaluation argument rests on.
 
 def build_models():
     """Return the candidate models as {name: unfitted pipeline factory}."""
     return {
+        # Multinomial logistic regression: a linear model, and the best
+        # performer here that also exposes predict_proba.
+        "logreg": lambda: make_pipeline(
+            StandardScaler(),
+            LogisticRegression(max_iter=2000),
+        ),
         # RBF SVM: the classical strong baseline for small tabular datasets.
         "svm": lambda: make_pipeline(
             StandardScaler(),
