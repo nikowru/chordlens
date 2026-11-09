@@ -77,12 +77,21 @@ required.
 | test | result |
 |---|---|
 | **unseen session** (leave-one-session-out) | **78.9%** |
-| **unseen person** (held-out sessions) | **85.2%** |
+| **unseen person**, all 9 chords | **69.1%** = **6.22x chance** |
+| unseen person, 5 chords only | 85.2% = 4.26x chance |
 
-Chance level for 9 chords is 11.1%. Both numbers comfortably clear the 70%
-usability threshold given in the course textbook.
+> **Know the difference between those two cross-person rows — a panel can probe it.**
+> The 85.2% comes from sessions that contain only 5 of the 9 chords, so `train.py`
+> trains a 5-class model for that test. It is a real number but it is **not your
+> deployed system**. The 69.1% is the actual 9-chord model tested on a whole unseen
+> player. Quote **69.1% / 6.22x chance** as your cross-person result. In
+> chance-normalised terms it is the stronger of the two anyway (6.22x vs 4.26x).
+
+78.9% clears the 70% usability threshold given in the course textbook.
 
 ### How we got here — two improvements, same day
+
+(cross-person row uses the 5-chord protocol throughout, so the three are comparable)
 
 | | 1 person, SVM | 2 people, SVM | 2 people, logistic regression |
 |---|---|---|---|
@@ -264,12 +273,16 @@ Linear SVM scored 0.3 points higher on unseen sessions, but:
 
 So `train.py` now tries **logistic regression, RBF SVM and MLP**, and picks the best
 by leave-one-session-out. On the final dataset logistic regression won at **78.9%**,
-and scored **85.2%** on the held-out person.
+and **69.1%** on a held-out player across all nine chords.
 
-> **Note:** the 80.6% in the table above and the shipped 85.2% differ because the
-> comparison script used identical settings across all 11 algorithms for fairness,
-> while `train.py` fits its final model on all non-held-out data. The table is for
-> *ranking algorithms*; 78.9% / 85.2% are the system's actual numbers.
+> **Note on the three different cross-person numbers you will see:**
+> - **69.1%** - the deployed 9-chord model on a whole unseen player. **Quote this one.**
+> - **85.2%** - a 5-class model on sessions containing only 5 chords. Easier task.
+> - **80.6%** - the figure in the table above, produced by the comparison script,
+>   which held all 11 algorithms to one identical protocol so the *ranking* is fair.
+>
+> All three are real; they answer different questions. The table ranks algorithms,
+> it does not state the system's accuracy.
 
 ---
 
@@ -294,11 +307,22 @@ recover information that was never in the data.**
 
 ### The evidence
 
-| scheme | classes | unseen session | unseen person |
-|---|---|---|---|
-| all 14 | 14 | 63.0% | 51.7% |
-| **drop these 5** | **9** | **78.9%** | **85.2%** |
-| merge the pairs | 12 | 72.7% | 54.7% |
+Re-measured on the final two-person dataset (the old figures came from the
+single-player era and did not survive):
+
+| scheme | classes | unseen session | unseen person | x chance |
+|---|---|---|---|---|
+| all 14 | 14 | 68.1% | 57.1% | 5.71x |
+| merge the identical pairs | 11 | **80.5%** | 67.8% | **6.78x** |
+| the 9 plus Bm | 10 | 78.4% | 65.0% | 6.50x |
+| **drop these 5 (adopted)** | **9** | 79.1% | **69.1%** | 6.22x |
+
+> **Be ready for this one.** The merged scheme now *beats* our adopted set on two of
+> three measures. We still chose 9, for two reasons: it has the **highest raw
+> cross-person accuracy** (69.1 vs 67.8), and its answers are **unambiguous** — a
+> merged class can only say "Bm or Cm" without saying which, which is useless to a
+> learner. Say this before they find it; the merged scheme is a legitimate
+> alternative and pretending otherwise looks worse than admitting it.
 
 ### Why this costs the project nothing
 
@@ -415,7 +439,7 @@ opposite.
 **"Why only 9 chords when there are 14?"**
 > Five are the same hand shape at a different fret. Our features are deliberately
 > blind to fret position, so they are structurally indistinguishable — we measured
-> 63.0% with all 14 versus 78.9% with 9. All seven letters A–G are still covered.
+> 68.1% with all 14 versus 79.1% with 9. All seven letters A–G are still covered.
 
 **"79% doesn't sound very accurate."**
 > Against an 11.1% chance level that's nearly 7× chance, and our textbook puts the
@@ -425,7 +449,8 @@ opposite.
 
 **"How do you know it isn't just memorising you?"**
 > We removed one person's recordings entirely, trained without them, and tested on
-> them: 85.2%. We also measured that adding a second person raised that number by 9
+> them: 69.1% across all nine chords, which is 6.22x chance. We also measured that
+> adding a second person raised our cross-person accuracy by 9
 > points, which is exactly what you'd expect if the earlier version *had* been partly
 > memorising.
 

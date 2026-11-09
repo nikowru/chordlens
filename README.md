@@ -1,9 +1,16 @@
 # Guitar Chord Detection from Hand Position
 
-Real-time classification of 14 guitar chords — the major and minor triad for
-each of the seven natural-note roots (A, B, C, D, E, F, G) — from a webcam,
-using **MediaPipe Hands** landmarks and **classical machine learning** (SVM
-and MLP).
+Real-time classification of **9 guitar chords** — A, B, C, D, Dm, E, Em, F, G —
+from a webcam, using **MediaPipe Hands** landmarks and **classical machine
+learning** (logistic regression, SVM and MLP).
+
+All 14 chords are recorded and stored; five (Am, Bm, Cm, Fm, Gm) are excluded
+from the model because they are structurally indistinguishable under
+position-invariant features — see [`src/config.py`](src/config.py) and
+[`DEFENSE_REVIEWER.md`](DEFENSE_REVIEWER.md). Every letter A–G is still covered.
+
+**Current results:** 78.9% leave-one-session-out over 16 sessions, and 69.1%
+(6.22x the 11.1% chance level) on a player held out of training entirely.
 
 The model never sees raw pixels. MediaPipe reduces each frame to 21 hand
 landmarks, and those landmarks are turned into 85 engineered geometric features
