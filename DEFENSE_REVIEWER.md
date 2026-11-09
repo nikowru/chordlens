@@ -3,8 +3,8 @@
 Study notes for the thesis defense. Everything here is measured from the code and
 data in this repository, not estimated.
 
-**Last updated:** 2026-11-09, after merging tatsu-06's recordings and switching
-the final model to logistic regression.
+**Last updated:** 2026-11-10. Final dataset (22 sessions, 2 players), final model
+(multinomial logistic regression), all numbers re-measured.
 
 ---
 
@@ -52,9 +52,9 @@ required.
 |---|---|
 | images captured | 13,369 |
 | hands successfully detected | 12,302 (**92.0%**) |
-| recording sessions | 18 |
+| recording sessions | 22 |
 | people | 2 |
-| rows used for the 9 modelled chords | 9,071 |
+| rows used for the 9 modelled chords | 9,592 |
 
 ### Rows per chord
 
@@ -64,11 +64,11 @@ required.
 | D | 1,171 | 16 |
 | Dm | 1,171 | 16 |
 | B | 1,057 | 15 |
+| G | 982 | 17 |
+| E | 961 | 18 |
+| Em | 961 | 18 |
+| F | 956 | 19 |
 | C | 913 | 13 |
-| Em | 846 | 14 |
-| G | 842 | 13 |
-| E | 828 | 14 |
-| F | 823 | 15 |
 
 ### Accuracy — the two headline numbers
 
@@ -76,18 +76,20 @@ required.
 
 | test | result |
 |---|---|
-| **unseen session** (leave-one-session-out) | **78.9%** |
-| **unseen person**, all 9 chords | **69.1%** = **6.22x chance** |
+| **unseen session** (leave-one-session-out, 22 sessions) | **79.4%** (sd 7.8) |
+| **unseen person**, all 9 chords | **68.9%** = **6.20x chance** |
 | unseen person, 5 chords only | 85.2% = 4.26x chance |
+| worst single session | 60.1% |
+| best single session | 91.9% |
 
 > **Know the difference between those two cross-person rows — a panel can probe it.**
 > The 85.2% comes from sessions that contain only 5 of the 9 chords, so `train.py`
 > trains a 5-class model for that test. It is a real number but it is **not your
 > deployed system**. The 69.1% is the actual 9-chord model tested on a whole unseen
-> player. Quote **69.1% / 6.22x chance** as your cross-person result. In
-> chance-normalised terms it is the stronger of the two anyway (6.22x vs 4.26x).
+> player. Quote **68.9% / 6.20x chance** as your cross-person result. In
+> chance-normalised terms it is the stronger of the two anyway (6.20x vs 4.26x).
 
-78.9% clears the 70% usability threshold given in the course textbook.
+79.4% clears the 70% usability threshold given in the course textbook.
 
 ### How we got here — two improvements, same day
 
@@ -105,6 +107,23 @@ required.
    varied dataset is a harder, more honest test.
 2. **+4.3 from switching to a linear model.** See section 7.
 
+**Then a third improvement, which raised consistency rather than the mean.** The
+second player later contributed four more sessions covering E, Em, F and G under
+better lighting:
+
+| | before | after |
+|---|---|---|
+| unseen session | 78.9% | **79.4%** |
+| **standard deviation** | 9.3 | **7.8** |
+| **worst session** | 54.9% | **60.1%** |
+| Em f1 | .576 | **.649** |
+| G f1 | .723 | **.787** |
+
+**Say this one out loud in the defense.** The mean barely moved, but the floor came
+up five points and the spread narrowed. For a live demo, a steadier model matters
+more than half a point of average accuracy. And it was measured on a *harder* test
+than before - 22 sessions instead of 17.
+
 Biggest per-chord gains on an unseen person from the second recorder: **C +20.0**
 (57.5 → 77.5), **Dm +21.5** (52.2 → 73.7). Those were previously the two weakest
 chords — the classic signature of a model that had been memorising one person's
@@ -114,16 +133,20 @@ hands.
 
 | strong | | medium | | weak | |
 |---|---|---|---|---|---|
-| F | .859 | G | .805 | Em | .645 |
-| B | .851 | D | .772 | A | .670 |
-| E | .824 | Dm | .693 | C | .558 |
+| B | .906 | G | .787 | A | .716 |
+| F | .900 | Dm | .745 | C | .676 |
+| E | .818 | D | .815 | Em | .649 |
 
-### Per-chord recall on the held-out person
+### Per-chord recall on the held-out player (all 5 of his sessions, 9 chords)
 
 | | | | | | |
 |---|---|---|---|---|---|
-| B | 99.0% | D | 81.2% | C | 77.5% |
-| A | 90.3% | Dm | 78.4% | | |
+| Dm | 85.8% | D | 80.4% | B | 66.9% |
+| A | 81.4% | G | 78.1% | Em | 55.5% |
+| | | E | 73.1% | F | 54.4% |
+| | | | | C | 46.1% |
+
+68.9% overall against 11.1% chance = **6.20x chance**.
 
 ### Per-chord recall on a completely unseen person (all 9 chords)
 
@@ -397,24 +420,37 @@ opposite.
 2. **Position-blind features.** The root cause of all 5 exclusions and of Bm's 36%.
    **The fix is known:** add a feature encoding hand position along the neck. That
    would break all these collisions at once. It is the highest-value next step.
-3. **Em is weak** — f1 .564, and only 43.1% on an unseen person. Part of its data was
-   captured poorly (see 5).
-4. **C is weak** — f1 .519, caused by the C–Dm proximity (2.08).
-5. **Lighting sensitivity.** One contributor's recordings averaged 35.8 brightness
+3. **Em is the weakest chord** — f1 .649, and 55.5% on an unseen player. But do NOT
+   call this structural: we thought it was, re-recorded it properly, and it gained
+   **7.3 points** (.576 to .649), the largest single-chord gain in the project. The
+   ceiling was higher than the first measurement implied. It is still the weakest,
+   and more good data would likely help again.
+4. **C is weak** — f1 .676, and only **46.1%** on an unseen player, the worst of any
+   chord there. Caused by the C-Dm proximity (2.08, the closest pair in the set).
+   Unlike Em, this one *is* structural - it comes from the features, not the sample.
+5. **Sensitivity to a change in recording setup.** The second player's E major scores
+   **83.1%** on his original session but only about **47%** on his four newer ones,
+   even though those are better lit and better captured. Same player, same chord,
+   different camera setups. This is the clearest evidence in the project that the
+   model is still partly fitting recording conditions rather than pure hand geometry.
+   Volunteer it - it is an honest limitation and it points straight at the fix (more
+   varied setups, not more frames).
+
+6. **Lighting sensitivity.** One contributor's recordings averaged 35.8 brightness
    against our 87.2 — 2.4× darker. His F detected at only 63.4% where his other
    chords hit 95–100%. **MediaPipe needs to see the hand.** Honest framing: this is a
    data-collection discipline issue, and it is also a real deployment constraint.
-6. **Some frames are near-duplicates.** 1,248 frames were captured at ~6 per second
+7. **Some frames are near-duplicates.** 1,248 frames were captured at ~6 per second
    instead of the intended 0.7s interval — effectively one frozen pose. Removing them
    *improved* accuracy slightly (76.8% → 77.2%), confirming they add nothing.
-7. **No audio.** We classify hand shape, not sound. We cannot tell whether the chord
+8. **No audio.** We classify hand shape, not sound. We cannot tell whether the chord
    was actually strummed, or strummed cleanly.
-8. **One voicing per chord.** Real players use several. We standardised on one each
+9. **One voicing per chord.** Real players use several. We standardised on one each
    (listed in `config.py`) because mixing voicings under one label is exactly the bug
    that broke Bm.
-9. **Repository size.** ~1.9 GB because the image dataset is version-controlled.
+10. **Repository size.** ~1.9 GB because the image dataset is version-controlled.
    Workable, but not how you'd ship this.
-10. **Label integrity is the project's recurring failure mode.** Twice, data arrived
+11. **Label integrity is the project's recurring failure mode.** Twice, data arrived
     that was labelled correctly but was not the thing the label described: once a Bm
     played with the wrong voicing (section 9), once an entire batch recorded on a
     ukulele instead of a guitar. Both were caught, neither reached the final model —

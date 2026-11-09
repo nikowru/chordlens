@@ -9,8 +9,10 @@ from the model because they are structurally indistinguishable under
 position-invariant features — see [`src/config.py`](src/config.py) and
 [`DEFENSE_REVIEWER.md`](DEFENSE_REVIEWER.md). Every letter A–G is still covered.
 
-**Current results:** 78.9% leave-one-session-out over 16 sessions, and 69.1%
-(6.22x the 11.1% chance level) on a player held out of training entirely.
+**Current results:** 79.4% leave-one-session-out over 22 sessions (sd 7.8), and
+68.9% (6.20x the 11.1% chance level) on a player held out of training entirely.
+Dataset: 13,890 frames from 2 players, 12,823 of which yielded a detected hand
+(92.3%).
 
 The model never sees raw pixels. MediaPipe reduces each frame to 21 hand
 landmarks, and those landmarks are turned into 85 engineered geometric features

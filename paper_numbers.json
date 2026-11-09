@@ -1,0 +1,169 @@
+{
+  "ryu_email": "ryunarawa06@gmail.com",
+  "images_total": "13,890",
+  "sessions": "22",
+  "rows_total": "12,823",
+  "detection_rate": "92.3 per cent",
+  "loso": "79.4 per cent",
+  "svm_loso": "78.3 per cent",
+  "mlp_loso": "77.2 per cent",
+  "chance": "11.1 per cent",
+  "person_all9": "68.9 per cent",
+  "person_x": "6.20 times",
+  "algo_rows": [
+    [
+      "*Logistic regression",
+      "78.9%",
+      "80.6%"
+    ],
+    [
+      "Linear SVM",
+      "79.2%",
+      "80.2%"
+    ],
+    [
+      "SVM (RBF kernel)",
+      "76.4%",
+      "77.8%"
+    ],
+    [
+      "Multilayer perceptron",
+      "76.2%",
+      "77.9%"
+    ],
+    [
+      "Linear discriminant anal.",
+      "75.5%",
+      "79.1%"
+    ],
+    [
+      "Hist. gradient boosting",
+      "69.7%",
+      "72.4%"
+    ],
+    [
+      "Random forest",
+      "64.7%",
+      "70.7%"
+    ],
+    [
+      "Extremely rand. trees",
+      "61.0%",
+      "67.2%"
+    ],
+    [
+      "k-nearest neighbours",
+      "54.9%",
+      "60.2%"
+    ],
+    [
+      "Decision tree",
+      "51.3%",
+      "47.5%"
+    ],
+    [
+      "Gaussian naive Bayes",
+      "36.8%",
+      "50.8%"
+    ]
+  ],
+  "perchord_rows": [
+    [
+      "A",
+      "0.666",
+      "0.775",
+      "0.716"
+    ],
+    [
+      "B",
+      "0.921",
+      "0.891",
+      "0.906"
+    ],
+    [
+      "C",
+      "0.722",
+      "0.635",
+      "0.676"
+    ],
+    [
+      "D",
+      "0.836",
+      "0.796",
+      "0.815"
+    ],
+    [
+      "Dm",
+      "0.691",
+      "0.808",
+      "0.745"
+    ],
+    [
+      "E",
+      "0.787",
+      "0.852",
+      "0.818"
+    ],
+    [
+      "Em",
+      "0.737",
+      "0.580",
+      "0.649"
+    ],
+    [
+      "F",
+      "0.911",
+      "0.889",
+      "0.900"
+    ],
+    [
+      "G",
+      "0.824",
+      "0.754",
+      "0.787"
+    ]
+  ],
+  "diversity_rows": [
+    [
+      "One player, SVM",
+      "77.1%",
+      "71.9%"
+    ],
+    [
+      "Two players, SVM",
+      "78.9%",
+      "80.9%"
+    ],
+    [
+      "*Two players, log. regr.",
+      "79.6%",
+      "85.2%"
+    ]
+  ],
+  "exclusion_rows": [
+    [
+      "All chords",
+      "14",
+      "68.1%",
+      "57.1%"
+    ],
+    [
+      "Merge identical pairs",
+      "11",
+      "80.5%",
+      "67.8%"
+    ],
+    [
+      "Nine plus B minor",
+      "10",
+      "78.4%",
+      "65.0%"
+    ],
+    [
+      "*Nine chords (adopted)",
+      "9",
+      "79.1%",
+      "69.1%"
+    ]
+  ]
+}
