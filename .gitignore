@@ -10,3 +10,6 @@ __pycache__/
 guitar-chords.v1i.folder/
 data/external/
 Guitar Chord.v1i.coco-segmentation/
+
+# npm, used only to build the paper docx
+node_modules/

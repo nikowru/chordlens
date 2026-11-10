@@ -6,7 +6,7 @@ const d = require("docx");
 const {
   Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel,
   Table, TableRow, TableCell, WidthType, BorderStyle, ShadingType,
-  SectionType, PageOrientation,
+  SectionType, PageOrientation, ImageRun,
 } = d;
 
 // ---------------------------------------------------------------- numbers
@@ -52,6 +52,40 @@ const caption = (text) => new Paragraph({
   spacing: { before: 60, after: 180 },
   children: [new TextRun({ text, font: FONT, size: 16 })],
 });
+
+// ---------------------------------------------------------------- figures
+// A figure is a centred image paragraph tied by keepNext to the caption below
+// it, so the two never split across a column break.
+//
+// COL is 4326 DXA = 216.3 pt = 288 px at the 96 dpi that docx-js assumes for
+// ImageRun transformations. Anything wider overflows the column.
+const FIG_W = 286;
+
+// PNG intrinsic size, read from the IHDR chunk, so an aspect ratio is measured
+// from the file rather than guessed and no figure is ever squashed.
+function pngSize(file) {
+  const b = fs.readFileSync(file);
+  if (b.readUInt32BE(0) !== 0x89504e47) throw new Error(`${file} is not a PNG`);
+  return { w: b.readUInt32BE(16), h: b.readUInt32BE(20) };
+}
+
+function figure(file, capText, width = FIG_W) {
+  const abs = path.join(__dirname, file);
+  const { w, h } = pngSize(abs);
+  return [
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 160, after: 0 },
+      keepNext: true,
+      children: [new ImageRun({
+        type: "png",
+        data: fs.readFileSync(abs),
+        transformation: { width, height: Math.round((width * h) / w) },
+      })],
+    }),
+    caption(capText),
+  ];
+}
 
 // a compact table that fits inside one column
 function table(headers, rows, widths) {
@@ -126,6 +160,11 @@ const authorTable = new Table({
 // ---------------------------------------------------------------- body
 const body = [];
 const S = (x) => body.push(x);
+const SFIG = (...args) => figure(...args).forEach(S);
+
+const N_CHORDS = N.perchord_rows.length;
+const WORD = ["zero", "one", "two", "three", "four", "five", "six", "seven",
+  "eight", "nine", "ten"];
 
 // --- Abstract
 S(rich([
@@ -166,6 +205,11 @@ S(p("Hand landmark representations have been applied with considerable success t
 // --- IV. Methodology
 S(h1("IV. Methodology"));
 S(p("The project follows the six phases of CRISP-DM. Each subsection below corresponds to one phase and to the specific scripts implementing it."));
+SFIG(
+  "reports/fig1_pipeline.png",
+  "Fig. 1. The recognition pipeline. MediaPipe Hands is the last stage that sees pixels; everything after it operates on geometry alone.",
+  240,
+);
 
 S(h2("A. Business Understanding"));
 S(p("The objective is to determine, from a single webcam frame and in real time, which of a defined set of guitar chords the fretting hand is forming. The requirement set at the outset was coverage of all seven natural-note roots. Audio is explicitly out of scope, as the aim is to assess hand position rather than acoustic output."));
@@ -176,6 +220,10 @@ S(p("Two data quality issues emerged during collection and are reported here bec
 
 S(h2("C. Data Preparation"));
 S(p("Each detected hand yields twenty-one landmarks, which are converted into eighty-five features in three groups. Sixty features are normalised landmark coordinates: every point is expressed relative to the wrist and divided by the distance from the wrist to the middle-finger knuckle, after which the wrist itself is discarded as it is identically zero. Ten features are the pairwise Euclidean distances among the five fingertips. Fifteen features are the flexion angles at the finger joints."));
+SFIG(
+  "reports/fig2_landmarks.png",
+  "Fig. 2. The twenty-one MediaPipe landmarks located on the fretting hand for four chords, each panel a single frame from the corpus. The tablature above each panel gives the voicing recorded.",
+);
 S(p("This construction makes the representation invariant to where the hand appears in the frame and to its apparent size, so that camera distance and hand size do not affect the result. Three invariances are deliberately withheld. Rotation is retained because the inclination of the hand carries genuine information about the chord. Mirror symmetry is retained because a left and a right hand forming the same shape are distinct configurations. Most consequentially, position along the neck is not encoded, as the representation is purely intrinsic to the hand. This last choice confers robustness to camera placement at the cost described in Section V-C."));
 
 S(h2("D. Modeling"));
@@ -207,6 +255,10 @@ S(p("Logistic regression rather than the linear support vector machine was selec
 
 S(h2("B. Final Model Performance"));
 S(p(`The deployed model attains ${N.loso} under leave-one-session-out cross-validation, exceeding the seventy per cent threshold that Maheshwari [3] identifies as the point of practical usability. On a player withheld entirely from training it attains ${N.person_all9} across all nine chords against a ${N.chance} chance level, a factor of ${N.person_x}. The latter figure warrants a note on protocol. Where the withheld sessions contain only a subset of the chord vocabulary, restricting the classifier to the classes actually present yields a higher figure, 85.2 per cent over five chords; that number describes a five-class model rather than the deployed nine-class one, and is reported here only for comparison with Table III. The ${N.person_all9} figure describes the system as deployed and is the one carried forward. Per-chord results appear in Table II.`));
+SFIG(
+  "reports/confusion_matrix.png",
+  `Fig. 3. Confusion matrix under leave-one-session-out cross-validation over ${N.sessions} sessions (${N.loso}). Each cell is shaded by the fraction of that chord's frames it accounts for, so the diagonal reads as recall.`,
+);
 S(caption("TABLE II. PER-CHORD PERFORMANCE"));
 S(table(
   ["Chord", "Prec.", "Rec.", "F1"],
@@ -214,6 +266,10 @@ S(table(
   [900, 800, 800, 800],
 ));
 S(p("Performance is uneven across chords. B major, F major and E major are recognised reliably, with F-measures of 0.906, 0.900 and 0.818 respectively. E minor remains weakest at 0.649, followed by C major at 0.676 and A major at 0.716. Analysis of the feature space offers a partial explanation: C major and D minor form the closest pair in the adopted chord set, separated by a distance of 2.08 in standardised feature space, which is smaller than the separation between B major and B minor despite the latter differing by only a single finger. This proximity was not anticipated during design and accounts for a substantial share of the error affecting C major."));
+SFIG(
+  "reports/fig4_per_chord.png",
+  "Fig. 4. Per-chord precision and recall under leave-one-session-out cross-validation, the values tabulated in Table II. B major and F major are the most reliably recognised; E minor is the weakest.",
+);
 S(p("E minor warrants separate comment, because an initial reading of the evidence proved wrong. It recorded the weakest F-measure in the corpus at 0.576, and part of its sample belonged to the rapidly captured subset described in Section IV-B, which left two competing explanations: that E minor is intrinsically difficult under this representation, or that its sample was simply of poorer quality. Rather than adopt the former, the four affected chords were re-recorded across four fresh sessions under improved illumination. E minor rose to 0.649 and G major from 0.723 to 0.787, the two largest single-chord gains observed. The limitation was therefore one of data quality and not of representation. E minor remains the weakest chord, but its ceiling is evidently higher than the first measurement implied."));
 
 S(h2("C. The Effect of Player Diversity"));
@@ -225,6 +281,10 @@ S(table(
   [2100, 1100, 1100],
 ));
 S(p("Cross-player accuracy rose by nine points, while accuracy on unseen sessions of the same player declined marginally. A further four sessions contributed later by the same second player reduced the standard deviation across sessions from 9.3 to 7.8 and raised the worst observed session from 54.9 to 60.1 per cent, improving the consistency of the system rather than its mean. This pattern is characteristic and should not be read as degradation: a more heterogeneous dataset constitutes a harder and more honest test, and a single-player corpus flatters itself. The chords that improved most were precisely those that had been weakest, C major and D minor gaining approximately twenty points each, which is the expected signature of a model that had partially memorised one individual's hands and was compelled to learn chord geometry instead."));
+SFIG(
+  "reports/confusion_matrix_holdout.png",
+  `Fig. 5. Confusion matrix on a player held out of training entirely (${N.person_all9} across all ${WORD[N_CHORDS]} chords). The two largest off-diagonal cells are E minor read as A major (${N.holdout_em_as_a} frames) and C major read as D minor (${N.holdout_c_as_dm} frames), both discussed in Section V-D.`,
+);
 S(p("The implication for future work is direct. Volume alone does not help: quadrupling the frames available for one chord from a player already represented moved its recall by approximately four points. Diversity does: a single additional player moved overall cross-player accuracy by nine."));
 
 S(h2("D. Structurally Indistinguishable Chords"));

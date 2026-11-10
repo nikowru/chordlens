@@ -10,6 +10,8 @@
   "chance": "11.1 per cent",
   "person_all9": "68.9 per cent",
   "person_x": "6.20 times",
+  "holdout_em_as_a": "180",
+  "holdout_c_as_dm": "148",
   "algo_rows": [
     [
       "*Logistic regression",
