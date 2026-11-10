@@ -436,21 +436,38 @@ opposite.
    Volunteer it - it is an honest limitation and it points straight at the fix (more
    varied setups, not more frames).
 
-6. **Lighting sensitivity.** One contributor's recordings averaged 35.8 brightness
+6. **F major's voicing is the wrong trade-off now — and you found it live.**
+   F is recorded as mini F (`xx3211`), not the full barre (`133211`). That was
+   chosen to avoid colliding with **Fm**, which differs by one finger and sat
+   within 1.0 in feature space. **But Fm is excluded from the model.** The
+   collision we paid to avoid no longer exists; the cost still does — mini F is a
+   compact 4-string shape and so is D (`xx0232`), so they get confused.
+   Evidence: F is f1 **.900** overall but only **54.4%** recall on an unseen
+   player, and **F read as D is 113 frames** in the held-out matrix, the third
+   largest error cell. Live testing on 2026-11-10 reproduced it.
+   **Why we didn't fix it:** changing a voicing invalidates all 956 existing F
+   frames across 19 sessions, and re-recording them could not be done in the
+   remaining time without creating a thin single-person class — the exact failure
+   that broke Bm. Documented as future work instead.
+   **If asked "why not just use a real F?"** — that is the right question, and the
+   answer is in Section VII of the paper. A voicing choice is only valid relative
+   to the chord set it sits in; ours changed underneath it.
+
+7. **Lighting sensitivity.** One contributor's recordings averaged 35.8 brightness
    against our 87.2 — 2.4× darker. His F detected at only 63.4% where his other
    chords hit 95–100%. **MediaPipe needs to see the hand.** Honest framing: this is a
    data-collection discipline issue, and it is also a real deployment constraint.
-7. **Some frames are near-duplicates.** 1,248 frames were captured at ~6 per second
+8. **Some frames are near-duplicates.** 1,248 frames were captured at ~6 per second
    instead of the intended 0.7s interval — effectively one frozen pose. Removing them
    *improved* accuracy slightly (76.8% → 77.2%), confirming they add nothing.
-8. **No audio.** We classify hand shape, not sound. We cannot tell whether the chord
+9. **No audio.** We classify hand shape, not sound. We cannot tell whether the chord
    was actually strummed, or strummed cleanly.
-9. **One voicing per chord.** Real players use several. We standardised on one each
+10. **One voicing per chord.** Real players use several. We standardised on one each
    (listed in `config.py`) because mixing voicings under one label is exactly the bug
    that broke Bm.
-10. **Repository size.** ~1.9 GB because the image dataset is version-controlled.
+11. **Repository size.** ~1.9 GB because the image dataset is version-controlled.
    Workable, but not how you'd ship this.
-11. **Label integrity is the project's recurring failure mode.** Twice, data arrived
+12. **Label integrity is the project's recurring failure mode.** Twice, data arrived
     that was labelled correctly but was not the thing the label described: once a Bm
     played with the wrong voicing (section 9), once an entire batch recorded on a
     ukulele instead of a guitar. Both were caught, neither reached the final model —
@@ -495,6 +512,16 @@ opposite.
 > 78.9% — and both beat the neural network. We ship logistic regression. That's because the 85 engineered features
 > already make the classes nearly linearly separable, so the complex models only had
 > spare capacity to overfit with.
+
+**"Your demo confused F with D. Why?"**
+> Because our F uses a reduced four-string voicing that is geometrically similar
+> to D. We chose it to avoid a collision with F minor — but F minor was later
+> excluded from the model, so that justification no longer holds while its cost
+> does. It is measured: F reads as D in 113 frames of the held-out matrix. The
+> fix is the full barre voicing, which spans six strings and is distinct from D.
+> We did not make the change because it invalidates all 956 existing F frames and
+> re-recording them in the time available would have produced a single-person
+> class — the same flaw that forced us to exclude B minor.
 
 **"What would you do with more time?"**
 > Three things, in order: more people; a feature encoding position along the neck,
