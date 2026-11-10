@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ChordLens</title>
+<meta name="description" content="Guitar chord recognition from hand position, running entirely in the browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #0b0b0d;
+    --bg-lift:   #121215;
+    --rule:      #26262c;
+    --rule-soft: #1a1a1f;
+    --ink:       #f2f0ed;
+    --ink-2:     #9b9893;
+    --ink-3:     #5f5d5a;
+    --brass:     #e0a93f;
+    --brass-dim: #6b5425;
+    --sage:      #7fa88a;
+    --rust:      #c47a52;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+    font-size: 15px; line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "ss01", "cv05";
+  }
+  .shell { max-width: 1240px; margin: 0 auto; padding: 0 28px 72px; }
+  @media (max-width: 640px) { .shell { padding: 0 16px 56px; } }
+
+  /* ─────────── masthead ─────────── */
+  .masthead {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    gap: 24px; flex-wrap: wrap;
+    padding: 30px 0 16px; border-bottom: 1px solid var(--rule);
+  }
+  .wordmark {
+    font-family: "Instrument Serif", Georgia, serif; font-weight: 400;
+    font-size: 30px; letter-spacing: -0.015em; line-height: 1;
+  }
+  .wordmark i { font-style: italic; color: var(--brass); }
+  .wordmark + p {
+    color: var(--ink-3); font-size: 12.5px; margin-top: 5px;
+    letter-spacing: 0.01em;
+  }
+  .live {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-family: "JetBrains Mono", monospace; font-size: 11px;
+    letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-3);
+  }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); }
+  .live.on { color: var(--sage); }
+  .live.on .dot { background: var(--sage); box-shadow: 0 0 0 3px rgba(127,168,138,.16); }
+
+  /* ─────────── lede ─────────── */
+  .lede {
+    padding: 22px 0 26px; max-width: 70ch;
+    color: var(--ink-2); font-size: 15px;
+  }
+  .lede b { color: var(--ink); font-weight: 500; }
+
+  /* ─────────── stage ─────────── */
+  .main {
+    display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr);
+    gap: 30px; align-items: start;
+  }
+  @media (max-width: 900px) { .main { grid-template-columns: 1fr; gap: 24px; } }
+
+  .viewport {
+    position: relative; aspect-ratio: 4 / 3; background: #000;
+    border: 1px solid var(--rule); border-radius: 3px; overflow: hidden;
+  }
+  .viewport video, .viewport canvas {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; transform: scaleX(-1);
+  }
+  .corner {
+    position: absolute; width: 16px; height: 16px;
+    border: 1px solid var(--brass-dim); pointer-events: none; z-index: 2;
+  }
+  .corner.tl { top: 10px; left: 10px; border-right: 0; border-bottom: 0; }
+  .corner.tr { top: 10px; right: 10px; border-left: 0; border-bottom: 0; }
+  .corner.bl { bottom: 10px; left: 10px; border-right: 0; border-top: 0; }
+  .corner.br { bottom: 10px; right: 10px; border-left: 0; border-top: 0; }
+
+  .curtain {
+    position: absolute; inset: 0; z-index: 3;
+    display: grid; place-content: center; justify-items: center; gap: 20px;
+    padding: 36px; text-align: center;
+    background:
+      radial-gradient(ellipse 120% 90% at 50% 40%, #16161a 0%, #0a0a0c 100%);
+  }
+  .curtain.hidden { display: none; }
+  .curtain p { color: var(--ink-2); font-size: 14px; max-width: 40ch; }
+  .curtain .kicker {
+    font-family: "JetBrains Mono", monospace; font-size: 10.5px;
+    letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-3);
+  }
+
+  .meta {
+    display: flex; justify-content: space-between; gap: 16px;
+    padding-top: 10px; font-family: "JetBrains Mono", monospace;
+    font-size: 11px; color: var(--ink-3); letter-spacing: 0.02em;
+  }
+  .meta b { font-weight: 400; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+  /* ─────────── readout ─────────── */
+  .label {
+    font-family: "JetBrains Mono", monospace; font-size: 10.5px;
+    letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-3);
+  }
+  .glyph {
+    font-family: "Instrument Serif", Georgia, serif; font-weight: 400;
+    font-size: clamp(104px, 17vw, 168px); line-height: 0.82;
+    letter-spacing: -0.035em; margin: 10px 0 0;
+    font-variant-numeric: lining-nums;
+  }
+  .glyph.resting { color: var(--rule); }
+  .voicing {
+    font-family: "JetBrains Mono", monospace; font-weight: 500;
+    font-size: 21px; letter-spacing: 0.3em; color: var(--brass);
+    min-height: 30px; margin-top: 16px;
+  }
+  .voicing-key { font-size: 10.5px; letter-spacing: 0.04em; color: var(--ink-3); margin-top: 4px; min-height: 16px; }
+
+  .gauge { margin-top: 26px; }
+  .gauge-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--ink-3);
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .gauge-head b { font-size: 15px; color: var(--ink); font-weight: 500; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+  .gauge-rail { height: 3px; background: var(--rule-soft); margin-top: 8px; position: relative; overflow: hidden; }
+  .gauge-rail > span { position: absolute; inset: 0 auto 0 0; width: 0%; background: var(--brass); transition: width .1s linear, background .25s; }
+  .gauge-rail::after {
+    content: ""; position: absolute; top: -3px; bottom: -3px; left: 55%;
+    width: 1px; background: var(--ink-3); opacity: .55;
+  }
+  .gauge-foot { font-size: 11px; color: var(--ink-3); margin-top: 7px; font-family: "JetBrains Mono", monospace; }
+
+  /* ─────────── spectrum ─────────── */
+  .spectrum { margin-top: 40px; border-top: 1px solid var(--rule); padding-top: 18px; }
+  .spectrum-head { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+  .bars {
+    display: grid; grid-template-columns: repeat(9, 1fr);
+    gap: 10px; margin-top: 18px; align-items: end;
+  }
+  .bar-cell { display: flex; flex-direction: column; align-items: center; gap: 9px; min-width: 0; }
+  .bar-track {
+    width: 100%; height: 104px; background: var(--rule-soft);
+    display: flex; align-items: flex-end; overflow: hidden;
+  }
+  .bar-fill { width: 100%; height: 0%; background: var(--ink-3); transition: height .1s linear, background .25s; }
+  .bar-cell.lead .bar-fill { background: var(--brass); }
+  .bar-name {
+    font-family: "JetBrains Mono", monospace; font-size: 13px; font-weight: 500;
+    color: var(--ink-3); transition: color .2s;
+  }
+  .bar-cell.lead .bar-name { color: var(--ink); }
+  .bar-pct {
+    font-family: "JetBrains Mono", monospace; font-size: 10px; color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+  }
+  @media (max-width: 560px) { .bar-track { height: 76px; } .bars { gap: 6px; } }
+
+  /* ─────────── controls ─────────── */
+  .controls {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    margin-top: 26px; padding-top: 20px; border-top: 1px solid var(--rule-soft);
+  }
+  button {
+    font: inherit; font-size: 14px; font-weight: 500; cursor: pointer;
+    padding: 10px 18px; border-radius: 2px; border: 1px solid transparent;
+    transition: background .15s, border-color .15s, color .15s;
+  }
+  button:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+  .btn-go { background: var(--brass); color: #1d1503; border-color: var(--brass); }
+  .btn-go:hover { background: #eeb94e; border-color: #eeb94e; }
+  .btn-quiet { background: transparent; color: var(--ink-2); border-color: var(--rule); }
+  .btn-quiet:hover:not(:disabled) { color: var(--ink); border-color: var(--ink-3); }
+  button:disabled { opacity: .35; cursor: not-allowed; }
+  .switch {
+    display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+    color: var(--ink-2); font-size: 13px; user-select: none; padding: 6px 2px;
+  }
+  .switch:hover { color: var(--ink); }
+  .switch input { accent-color: var(--brass); width: 14px; height: 14px; cursor: pointer; }
+  .spacer { flex: 1; }
+
+  /* ─────────── footer ─────────── */
+  .colophon {
+    margin-top: 48px; padding-top: 20px; border-top: 1px solid var(--rule);
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 26px;
+  }
+  .colophon section h3 {
+    font-family: "JetBrains Mono", monospace; font-size: 10.5px; font-weight: 500;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 7px;
+  }
+  .colophon section p { font-size: 13px; color: var(--ink-2); line-height: 1.6; }
+  .colophon b { color: var(--ink); font-weight: 500; }
+  .colophon .fig {
+    font-family: "JetBrains Mono", monospace; color: var(--brass);
+    font-variant-numeric: tabular-nums;
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="masthead">
+    <div>
+      <div class="wordmark">Chord<i>Lens</i></div>
+      <p>Reading guitar chords from the shape of your hand</p>
+    </div>
+    <div class="live" id="live"><span class="dot"></span><span id="live-text">standby</span></div>
+  </header>
+
+  <p class="lede">
+    The classifier never sees your camera. Every frame is reduced to
+    <b>21 hand landmarks</b>, those landmarks become <b>85 geometric
+    measurements</b>, and a logistic regression model trained on
+    <b>12,823 frames</b> decides which chord you are holding. All of it happens
+    inside this browser, and nothing is ever uploaded.
+  </p>
+
+  <div class="main">
+    <div>
+      <div class="viewport">
+        <video id="video" playsinline muted></video>
+        <canvas id="canvas"></canvas>
+        <span class="corner tl"></span><span class="corner tr"></span>
+        <span class="corner bl"></span><span class="corner br"></span>
+        <div class="curtain" id="overlay">
+          <div class="kicker">Camera idle</div>
+          <p id="overlay-text">
+            Position your fretting hand so the camera can see it clearly, then hold
+            a chord. Everything is processed on this device, and the video is never
+            sent anywhere.
+          </p>
+          <button class="btn-go" id="start">Start camera</button>
+        </div>
+      </div>
+      <div class="meta">
+        <span>smoothed over <b id="window-size">7</b> frames</span>
+        <span id="hand-state">awaiting hand</span>
+        <span id="fps"></span>
+      </div>
+    </div>
+
+    <div>
+      <div class="label">Detected chord</div>
+      <div class="glyph resting" id="chord">·</div>
+      <div class="voicing" id="tab"></div>
+      <div class="voicing-key" id="tab-hint"></div>
+
+      <div class="gauge">
+        <div class="gauge-head"><span>Confidence</span><b id="conf-value">0%</b></div>
+        <div class="gauge-rail"><span id="conf-bar"></span></div>
+        <div class="gauge-foot" id="sound-state">audio threshold 55%</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="spectrum">
+    <div class="spectrum-head">
+      <div class="label">All nine chords</div>
+      <div class="label" style="color:var(--ink-3)">live probability</div>
+    </div>
+    <div class="bars" id="probs"></div>
+  </div>
+
+  <div class="controls">
+    <button class="btn-quiet" id="stop" disabled>Stop camera</button>
+    <label class="switch"><input type="checkbox" id="sound" checked> Chord audio</label>
+    <label class="switch"><input type="checkbox" id="skeleton" checked> Landmarks</label>
+    <span class="spacer"></span>
+  </div>
+
+  <div class="colophon">
+    <section>
+      <h3>Measured accuracy</h3>
+      <p><span class="fig">79.4%</span> on recording sessions the model had never
+         seen, and <span class="fig">68.9%</span> on a player whose data was withheld
+         from training entirely. That second figure is
+         <span class="fig">6.2&times;</span> the 11.1% chance level.</p>
+    </section>
+    <section>
+      <h3>Nine chords</h3>
+      <p>A, B, C, D, Dm, E, Em, F and G. The five remaining minor chords are set
+         aside because each one repeats the shape of another chord further along the
+         neck, and these measurements are designed to ignore where the hand sits.</p>
+    </section>
+    <section>
+      <h3>A caveat</h3>
+      <p>The figures above were measured using the <b>Python</b> version of
+         MediaPipe. This page runs the <b>JavaScript</b> build instead. The classifier
+         is identical in both, but the landmark detector is a different release, so
+         what you see here may not match the published numbers exactly.</p>
+    </section>
+  </div>
+</div>
+
+<script type="module">
+import { extractFeatures, predictProba } from "./features.js";
+
+const TASKS = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+const MODEL_TASK = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
+
+const SMOOTH_WINDOW = 7;     // matches realtime.py
+const PLAY_THRESHOLD = 0.55; // minimum smoothed confidence before a chord sounds
+const PLAY_COOLDOWN = 700;   // ms, floor between two sounds
+
+const $ = (id) => document.getElementById(id);
+const video = $("video"), canvas = $("canvas"), ctx = canvas.getContext("2d");
+
+let model = null, landmarker = null, stream = null, running = false;
+let history = [], lastPlayed = null, lastPlayTime = 0, frames = 0, lastFps = performance.now();
+
+// ---------------------------------------------------------------- audio
+// Karplus-Strong plucked string. Notes come from the chord's own voicing, so the
+// sound and the tablature on screen can never disagree.
+const OPEN_STRINGS = [82.41, 110.00, 146.83, 196.00, 246.94, 329.63]; // low E to high e
+let audio = null;
+
+function voicingToFreqs(voicing) {
+  const out = [];
+  for (let i = 0; i < voicing.length; i++) {
+    const c = voicing[i];
+    if (c === "x" || c === "X") continue;
+    const fret = parseInt(c, 10);
+    if (Number.isNaN(fret)) continue;
+    out.push(OPEN_STRINGS[i] * Math.pow(2, fret / 12));
+  }
+  return out;
+}
+
+function pluck(freq, when, gain) {
+  const sr = audio.sampleRate;
+  const n = Math.max(2, Math.round(sr / freq));
+  const len = Math.floor(sr * 1.9);
+  const buf = audio.createBuffer(1, len, sr);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;               // excite
+  for (let i = n; i < len; i++) d[i] = 0.498 * (d[i - n] + d[i - n + 1]); // decay
+  const src = audio.createBufferSource(); src.buffer = buf;
+  const g = audio.createGain();
+  g.gain.setValueAtTime(gain, when);
+  g.gain.exponentialRampToValueAtTime(0.0001, when + 1.8);
+  const lp = audio.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 3600;
+  src.connect(lp).connect(g).connect(audio.destination);
+  src.start(when); src.stop(when + 1.9);
+}
+
+function strum(chord) {
+  if (!audio || !model.voicings[chord]) return;
+  const freqs = voicingToFreqs(model.voicings[chord]);
+  const t0 = audio.currentTime + 0.01;
+  freqs.forEach((f, i) => pluck(f, t0 + i * 0.028, 0.26));
+}
+
+// ---------------------------------------------------------------- drawing
+const BONES = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[0,9],[9,10],[10,11],[11,12],
+               [0,13],[13,14],[14,15],[15,16],[0,17],[17,18],[18,19],[19,20],[5,9],[9,13],[13,17],[0,17]];
+
+function draw(landmarks) {
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  if (!landmarks || !$("skeleton").checked) return;
+  ctx.lineWidth = Math.max(1.5, w / 420);
+  ctx.strokeStyle = "rgba(224,169,63,0.75)";
+  for (const [a, b] of BONES) {
+    ctx.beginPath();
+    ctx.moveTo(landmarks[a].x * w, landmarks[a].y * h);
+    ctx.lineTo(landmarks[b].x * w, landmarks[b].y * h);
+    ctx.stroke();
+  }
+  for (const p of landmarks) {
+    ctx.beginPath();
+    ctx.arc(p.x * w, p.y * h, Math.max(2, w / 300), 0, Math.PI * 2);
+    ctx.fillStyle = "#f2f0ed"; ctx.fill();
+  }
+}
+
+// ---------------------------------------------------------------- ui
+function buildBars() {
+  $("probs").innerHTML = model.classes.map((c) => `
+    <div class="bar-cell" data-c="${c}">
+      <div class="bar-pct">0%</div>
+      <div class="bar-track"><div class="bar-fill"></div></div>
+      <div class="bar-name">${c}</div>
+    </div>`).join("");
+}
+
+function setLive(on, text) {
+  $("live").classList.toggle("on", on);
+  $("live-text").textContent = text;
+}
+
+function renderIdle(message) {
+  $("chord").textContent = "·";
+  $("chord").className = "glyph resting";
+  $("tab").textContent = "";
+  $("tab-hint").textContent = "";
+  $("conf-bar").style.width = "0%";
+  $("conf-value").textContent = "0%";
+  $("hand-state").textContent = message;
+  document.querySelectorAll(".bar-cell").forEach((cell) => {
+    cell.classList.remove("lead");
+    cell.querySelector(".bar-fill").style.height = "0%";
+    cell.querySelector(".bar-pct").textContent = "0%";
+  });
+}
+
+function render(chord, confidence, proba) {
+  $("chord").textContent = chord;
+  $("chord").className = "glyph";
+  const voicing = model.voicings[chord] || "";
+  $("tab").textContent = voicing;
+  $("tab-hint").textContent = voicing ? "low E to high e · x not played · 0 open" : "";
+  const pct = Math.round(confidence * 100);
+  $("conf-bar").style.width = pct + "%";
+  $("conf-bar").style.background = confidence >= PLAY_THRESHOLD ? "var(--brass)" : "var(--rust)";
+  $("conf-value").textContent = pct + "%";
+  model.classes.forEach((c, i) => {
+    const cell = document.querySelector(`.bar-cell[data-c="${c}"]`);
+    cell.classList.toggle("lead", c === chord);
+    cell.querySelector(".bar-fill").style.height = (proba[i] * 100).toFixed(1) + "%";
+    cell.querySelector(".bar-pct").textContent = (proba[i] * 100).toFixed(0) + "%";
+  });
+}
+
+// ---------------------------------------------------------------- loop
+function majority(list) {
+  const counts = {};
+  for (const v of list) counts[v] = (counts[v] || 0) + 1;
+  let best = null, n = 0;
+  for (const k in counts) if (counts[k] > n) { best = k; n = counts[k]; }
+  return [best, n / list.length];
+}
+
+function loop() {
+  if (!running) return;
+  if (video.readyState >= 2) {
+    if (canvas.width !== video.videoWidth) {
+      canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+    }
+    const result = landmarker.detectForVideo(video, performance.now());
+    const hand = result.landmarks && result.landmarks[0];
+
+    if (hand) {
+      draw(hand);
+      const pts = hand.map((p) => [p.x, p.y, p.z]);
+      const aspect = video.videoWidth / video.videoHeight;
+      const proba = predictProba(extractFeatures(pts, aspect), model);
+      let top = 0;
+      for (let i = 1; i < proba.length; i++) if (proba[i] > proba[top]) top = i;
+      const raw = model.classes[top];
+
+      history.push(raw);
+      if (history.length > SMOOTH_WINDOW) history.shift();
+      const [stable, agreement] = majority(history);
+      const confidence = proba[model.classes.indexOf(stable)] * agreement;
+
+      render(stable, confidence, proba);
+      $("hand-state").textContent = `raw ${raw} · stable ${stable}`;
+      setLive(true, "tracking");
+
+      // Sound once, on a genuinely new stable chord.
+      const now = performance.now();
+      if ($("sound").checked && stable !== lastPlayed &&
+          history.length === SMOOTH_WINDOW && agreement === 1 &&
+          confidence >= PLAY_THRESHOLD && now - lastPlayTime > PLAY_COOLDOWN) {
+        strum(stable);
+        lastPlayed = stable;
+        lastPlayTime = now;
+        $("sound-state").textContent = `played ${stable} · ${model.voicings[stable]}`;
+      }
+    } else {
+      draw(null);
+      history = [];
+      lastPlayed = null;          // re-forming the same chord should sound again
+      renderIdle("no hand in frame");
+      setLive(true, "searching");
+    }
+
+    frames++;
+    const now = performance.now();
+    if (now - lastFps > 500) {
+      $("fps").textContent = (frames * 1000 / (now - lastFps)).toFixed(0) + " fps";
+      frames = 0; lastFps = now;
+    }
+  }
+  requestAnimationFrame(loop);
+}
+
+// ---------------------------------------------------------------- start / stop
+async function start() {
+  const btn = $("start");
+  btn.disabled = true;
+  const kicker = document.querySelector(".curtain .kicker");
+  try {
+    kicker.textContent = "Loading";
+    $("overlay-text").textContent = "Fetching the model…";
+    if (!model) {
+      model = await (await fetch("./model.json")).json();
+      buildBars();
+      $("window-size").textContent = SMOOTH_WINDOW;
+    }
+    if (!landmarker) {
+      $("overlay-text").textContent = "Loading the hand landmarker…";
+      const vision = await import(`${TASKS}/vision_bundle.mjs`);
+      const files = await vision.FilesetResolver.forVisionTasks(`${TASKS}/wasm`);
+      landmarker = await vision.HandLandmarker.createFromOptions(files, {
+        baseOptions: { modelAssetPath: MODEL_TASK, delegate: "GPU" },
+        runningMode: "VIDEO", numHands: 1, minHandDetectionConfidence: 0.5,
+      });
+    }
+    $("overlay-text").textContent = "Waiting for camera permission…";
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" }, audio: false,
+    });
+    video.srcObject = stream;
+    await video.play();
+
+    try { audio = new (window.AudioContext || window.webkitAudioContext)(); await audio.resume(); }
+    catch { audio = null; $("sound-state").textContent = "audio unavailable in this browser"; }
+
+    $("overlay").classList.add("hidden");
+    $("stop").disabled = false;
+    running = true;
+    renderIdle("no hand in frame");
+    setLive(true, "searching");
+    loop();
+  } catch (err) {
+    console.error(err);
+    kicker.textContent = "Could not start";
+    $("overlay-text").textContent =
+      (err && err.message ? err.message : String(err)) +
+      ". The camera needs your permission, and the page has to be served over https or from localhost.";
+    btn.disabled = false;
+  }
+}
+
+function stop() {
+  running = false;
+  if (stream) stream.getTracks().forEach((t) => t.stop());
+  stream = null; video.srcObject = null;
+  history = []; lastPlayed = null;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  $("overlay").classList.remove("hidden");
+  document.querySelector(".curtain .kicker").textContent = "Camera stopped";
+  $("overlay-text").textContent = "Start again whenever you are ready.";
+  $("start").disabled = false;
+  $("stop").disabled = true;
+  renderIdle("stopped");
+  setLive(false, "standby");
+  $("fps").textContent = "";
+}
+
+$("start").addEventListener("click", start);
+$("stop").addEventListener("click", stop);
+</script>
+</body>
+</html>
