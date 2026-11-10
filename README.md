@@ -65,7 +65,28 @@ chord-detection/
   extract_landmarks.py   images -> data/landmarks.csv
   train.py           Phase 2: trains and evaluates, writes models/ and reports/
   realtime.py        Phase 3: live webcam demo using the saved model
+
+  DEFENSE_REVIEWER.md    every result, decision and limitation, in one place
+  ChordLens_Paper.docx   the conference paper (generated - see below)
+  paper_numbers.json     every figure quoted in the paper; the single source
+  tools_paper_build.js   builds the .docx from paper_numbers.json
+  tools_make_figures.py  regenerates reports/fig1, fig2 and fig4
 ```
+
+### Rebuilding the paper
+
+`ChordLens_Paper.docx` is generated. Never edit it directly - edit
+`tools_paper_build.js`, or `paper_numbers.json` for a number, then:
+
+```powershell
+npm install docx            # once
+node tools_paper_build.js paper_numbers.json ChordLens_Paper.docx
+```
+
+Figures come from `reports/`. The two confusion matrices are written by
+`train.py`; the pipeline, landmark and per-chord figures by
+`tools_make_figures.py`. Regenerate the figures whenever the dataset changes,
+or the paper will carry numbers that no longer match the model.
 
 ---
 

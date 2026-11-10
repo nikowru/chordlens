@@ -13,3 +13,7 @@ Guitar Chord.v1i.coco-segmentation/
 
 # npm, used only to build the paper docx
 node_modules/
+
+# course textbook, kept locally but not version-controlled
+Anil Maheshwari*.pdf
+data/landmarks_old.csv
