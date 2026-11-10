@@ -1,5 +1,5 @@
 CHORDLENS — DEFENSE PACK
-Built 10 November 2026, 19:05. Table III re-derived, all three rows. Defense: Wednesday 12 November 2026.
+Built 10 November 2026, 20:15. Table III re-derived; script included as a file. Defense: Wednesday 12 November 2026.
 
 Everything in this folder is current. If a ChordLens file exists anywhere
 else on your machine, it is older than these. Use only what is here.
@@ -8,14 +8,16 @@ else on your machine, it is older than these. Use only what is here.
 WHAT TO BRING
 -------------
 
-  ChordLens_Defense.pptx   The deck. 16 slides. Speaker notes on every slide.
-  ChordLens_Paper.docx     The paper. Four tables, five figures, two columns.
+  ChordLens_Defense.pptx        The deck. 16 slides, speaker notes on each.
+  ChordLens_Paper.docx          The paper. Four tables, five figures.
+  ChordLens_Defense_Script.docx The speaking script. Print it, or open it
+                                on a second screen. Works offline.
 
-  The speaking script is a live doc, not a file:
+  The script also exists as a live doc, which updates by itself:
   https://claude.ai/artifact/Md5NUxNncrnoXxruFchUyY
 
-  Open it on a phone or second screen. It updates by itself, so there is
-  nothing to download and no stale copy to worry about.
+  The two are the same words. Use the .docx on the day so nothing depends
+  on a network; use the link if you want to edit or leave comments.
 
 
 WHO SPEAKS WHEN
