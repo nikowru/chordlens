@@ -17,3 +17,6 @@ node_modules/
 # course textbook, kept locally but not version-controlled
 Anil Maheshwari*.pdf
 data/landmarks_old.csv
+
+# re-derivation cache: tools_diversity_check.py pulls this from git history
+reports/slides/landmarks_*.csv

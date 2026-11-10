@@ -93,18 +93,27 @@ required.
 
 ### How we got here — two improvements, same day
 
+> **Where these figures come from.** The script that produced this table
+> originally was not kept, and the two stored copies of it had drifted apart. The
+> numbers here are a re-derivation, not a recovery: `tools_diversity_check.py`
+> rebuilds the 18-session feature table from commit 8d8aae9 and re-runs the
+> protocol. Rows 2 and 3 reproduced the stored values exactly; row 1 did not, and
+> has been replaced with what the re-run gives. Say so plainly if asked.
+
 (cross-person row uses the 5-chord protocol throughout, so the three are comparable)
 
 | | 1 person, SVM | 2 people, SVM | 2 people, logistic regression |
 |---|---|---|---|
-| unseen session | 77.1% | 76.4% | **78.9%** |
-| **unseen person** | **71.9%** | **80.9%** | **85.2%** |
+| unseen session | 74.8% | 76.4% | **78.9%** |
+| **unseen person** | **66.7%** | **80.9%** | **85.2%** |
 
-**Cross-person accuracy rose 13.3 points in total**, from two separate causes:
+**Cross-person accuracy rose 18.5 points in total**, from two separate causes:
 
-1. **+9.0 from a second person's recordings.** This is the most important result in
-   the project. The small dip in the session number is expected and healthy — a more
-   varied dataset is a harder, more honest test.
+1. **+14.2 from a second person's recordings.** This is the most important result in
+   the project. The session number barely moved (74.8 → 76.4): a second contributor
+   transformed accuracy on an unseen person and left accuracy on the original player
+   almost untouched, which is the signature of a model that had been fitting one
+   person's hands. A more varied dataset is also a harder, more honest test.
 2. **+4.3 from switching to a linear model.** See section 7.
 
 **Then a third improvement, which raised consistency rather than the mean.** The
